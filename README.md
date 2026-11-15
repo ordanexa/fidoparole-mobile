@@ -1,0 +1,104 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/wordmark-dark.svg">
+    <img src="assets/logo/wordmark.svg" alt="FidoParole" width="420">
+  </picture>
+</p>
+
+<p align="center"><b>Your passwords, stored on your FIDO2 security key — on Android and iPhone.</b></p>
+
+# FidoParole Mobile
+
+The Android and iOS apps of [FidoParole](https://github.com/token2/fidoparole).
+There is no vault file on the phone and no cloud: the encrypted vault lives in the
+security key's own largeBlob storage, and only that key (with its PIN or
+fingerprint) can decrypt it. The vaults are the same ones the Windows, Linux and
+macOS app creates — plug the key into a laptop or hold it to a phone.
+
+> **Status: proof of concept.** Android works on real phones over USB; NFC is being
+> tested. The iOS app has not been tried on an iPhone yet.
+
+## What it does
+
+- **Unlock** a vault with the key's PIN (or its fingerprint, over USB), browse,
+  search, add and edit entries, generate passwords, and **save back** to the key.
+- **USB-C** (Android) and **NFC** (Android and iPhone): hold the key to the phone and
+  keep it there until the app says it's done — there's no touch over NFC.
+- **Saved PIN** (Android): optionally keep the PIN on the phone, unlocked by your
+  fingerprint or screen lock (Android Keystore). Removed automatically if the key
+  ever rejects it.
+- **PIN keyboard switch:** number pad or full keyboard, for PINs with letters.
+- **Low-PIN guard:** with 1–2 attempts left the app warns before trying.
+- **Copy** the vault to another key, **export/import** encrypted backup files.
+- **Demo mode** (PIN 1234) with a software key and a sample vault.
+- Screenshots blocked, copied passwords cleared after 30 s, auto-lock in the
+  background.
+
+Capacity depends on the key: 1 KB of largeBlob holds about 15–20 entries,
+2 KB about 50.
+
+## Layout
+
+```
+core/      Rust: vault format + CTAP2 client (CTAPHID over USB, ISO 7816 over NFC,
+           PIN/UV protocols 1 and 2, hmac-secret, largeBlob). No C dependencies.
+ffi/       UniFFI bindings (Kotlin and Swift) over core
+android/   Kotlin + Jetpack Compose app (Android 8+)        → android/README.md
+ios/       SwiftUI app with Core NFC (iOS 16+)              → ios/README.md
+tools/     crosscheck.py (core vs python-fido2), sim/ (independent CTAP simulator)
+```
+
+## Build
+
+**Android** (Linux, macOS or WSL; JDK 17, Android SDK 36, NDK 27.2.12479018):
+
+```bash
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+cd android && ./gradlew assembleDebug
+```
+
+**iOS** (macOS with Xcode 16): see [ios/README.md](ios/README.md).
+
+Or let GitHub Actions do it: every push builds the Android APK and the iOS app
+(see the *Actions* tab; the APK is attached to each run).
+
+## Tests
+
+```bash
+cargo test --workspace                       # vault format, CTAP flows over HID and NFC framing
+pip install fido2 && cargo build -p fidoparole-core --example mock_server --features mock \
+  && python3 tools/crosscheck.py target/debug/examples/mock_server
+pip install -r tools/sim/requirements.txt    # independent simulator, incl. rejection cases
+cargo run -p fidoparole-core --features mock --example sim_check -- tools/sim/authenticator.py
+cd android && ./gradlew testDebugUnitTest    # Kotlin bindings ↔ Rust, UI screenshots
+```
+
+## On-key format
+
+Shared with the desktop app, so every vault opens everywhere: one discoverable
+credential per vault under RP id `fido2-vault.token2` (credProtect 3), a fixed
+hmac-secret salt, `HKDF-SHA256 → AES-256-GCM` over the deflated JSON vault
+(`T2VLT` v1 header), stored in the credential's largeBlob entry. Details in
+[`core/src/vault.rs`](core/src/vault.rs) and
+[`core/src/keyops.rs`](core/src/keyops.rs).
+
+## Credits
+
+Thanks to **Pascal ([@pascalep](https://github.com/pascalep))**, who wrote an
+independent Android reader for FidoParole vaults before this app existed and shared
+it with Token2. From his work we took:
+
+- the **independent CTAP simulator** (`tools/sim/authenticator.py`, built on Yubico's
+  python-fido2), which now checks this app's Rust client, including its rejection
+  cases (wrong PIN, bad checksum, missing user verification, tampered vault);
+- **queued USB reads** (`UsbRequest`) instead of blocking reads with a timeout, and
+  matching FIDO HID interfaces only (no boot keyboards or mice);
+- the **low-PIN-attempts guard**;
+- **stricter checks on the key's answers** (RP id hash, user present, user verified).
+
+python-fido2 is © Yubico AB, BSD 2-clause.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

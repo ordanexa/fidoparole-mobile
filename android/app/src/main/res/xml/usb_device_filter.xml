@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vendors of common FIDO2 keys; any FIDO HID key also works from inside the app. -->
+<resources>
+    <usb-device vendor-id="13470" /> <!-- Token2 0x349E -->
+    <usb-device vendor-id="4176" />  <!-- Yubico 0x1050 -->
+    <usb-device vendor-id="2414" />  <!-- Feitian 0x096E -->
+    <usb-device vendor-id="8352" />  <!-- Nitrokey 0x20A0 -->
+    <usb-device vendor-id="4617" />  <!-- pid.codes / SoloKeys 0x1209 -->
+</resources>

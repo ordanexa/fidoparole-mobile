@@ -1,0 +1,28 @@
+name: ios
+on:
+  push:
+    paths: ["ios/**", "core/**", "ffi/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", "core/**", "ffi/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios" }
+      - uses: Swatinem/rust-cache@v2
+      - name: Rust core → XCFramework + Swift bindings
+        working-directory: ios
+        run: ./build-rust.sh
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: brew install xcodegen && xcodegen
+      - name: Build for the simulator (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild -project FidoParole.xcodeproj -scheme FidoParole \
+            -destination 'generic/platform=iOS Simulator' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build | tail -50

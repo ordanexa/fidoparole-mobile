@@ -1,0 +1,42 @@
+# XcodeGen spec: `brew install xcodegen && ./build-rust.sh && xcodegen` → FidoParole.xcodeproj
+name: FidoParole
+options:
+  bundleIdPrefix: com.token2
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  FidoParole:
+    type: application
+    platform: iOS
+    sources:
+      - path: FidoParole
+      - path: Generated          # Swift bindings from build-rust.sh
+        optional: true
+    dependencies:
+      - framework: Frameworks/FidoParoleFFI.xcframework
+        embed: false             # static library
+    entitlements:
+      path: FidoParole/FidoParole.entitlements
+      properties:
+        com.apple.developer.nfc.readersession.formats: [TAG]
+    info:
+      path: FidoParole/Info.plist
+      properties:
+        CFBundleDisplayName: FidoParole
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NFCReaderUsageDescription: FidoParole reads your vault from your FIDO2 security key over NFC.
+        # The FIDO applet; CoreNFC only selects AIDs listed here.
+        com.apple.developer.nfc.readersession.iso7816.select-identifiers: [A0000006472F0001]
+        ITSAppUsesNonExemptEncryption: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.token2.fidoparole
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        OTHER_LDFLAGS: ["-lc++"]

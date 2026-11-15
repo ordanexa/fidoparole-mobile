@@ -1,0 +1,18 @@
+# Rust code shared by the FidoParole Android and iOS apps.
+#   core/  vault format + CTAP2 client (pure Rust, no C dependencies)
+#   ffi/   UniFFI bindings used by the Android and iOS apps
+[workspace]
+resolver = "2"
+members = ["core", "ffi"]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+authors = ["Token2"]
+license = "MIT"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = "s"

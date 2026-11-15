@@ -1,0 +1,26 @@
+name: core
+on:
+  push:
+    paths: ["core/**", "ffi/**", "tools/**", "Cargo.toml", "Cargo.lock", ".github/workflows/core.yml"]
+  pull_request:
+    paths: ["core/**", "ffi/**", "tools/**", "Cargo.toml", "Cargo.lock"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Unit + flow tests (mock authenticator over CBOR, USB HID and NFC framing)
+        run: cargo test --workspace
+      - name: Cross-check against python-fido2
+        run: |
+          pip install fido2
+          cargo build -p fidoparole-core --example mock_server --features mock
+          python3 tools/crosscheck.py target/debug/examples/mock_server
+      - name: Independent CTAP simulator (incl. rejection cases)
+        run: |
+          pip install -r tools/sim/requirements.txt
+          cargo run -p fidoparole-core --features mock --example sim_check -- tools/sim/authenticator.py

@@ -1,0 +1,29 @@
+[package]
+name = "fidoparole-ffi"
+description = "UniFFI bindings of the FidoParole core for the Android and iOS apps"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "fidoparole_ffi"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["cli"]
+
+[features]
+cli = ["uniffi/cli"]
+
+[dependencies]
+fidoparole-core = { path = "../core", features = ["mock"] }
+uniffi = "0.32.2"
+thiserror = "2.0.21"
+zeroize = "1.9.1"
+sha2 = "0.11.0"
+
+[dev-dependencies]
+fidoparole-core = { path = "../core", features = ["mock"] }
