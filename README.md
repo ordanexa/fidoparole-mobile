@@ -85,7 +85,7 @@ hmac-secret salt, `HKDF-SHA256 → AES-256-GCM` over the deflated JSON vault
 
 ## Credits
 
-Thanks to **Pascal ([@pascalep](https://github.com/pascalep))**, who wrote an
+Thanks to **[@pascalep](https://github.com/pascalep)**, who wrote an
 independent Android reader for FidoParole vaults before this app existed and shared
 it with Token2. From his work we took:
 
