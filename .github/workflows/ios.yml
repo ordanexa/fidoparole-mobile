@@ -1,9 +1,5 @@
 name: ios
 on:
-  push:
-    paths: ["ios/**", "core/**", "ffi/**", ".github/workflows/ios.yml"]
-  pull_request:
-    paths: ["ios/**", "core/**", "ffi/**"]
   workflow_dispatch:
 
 jobs:
