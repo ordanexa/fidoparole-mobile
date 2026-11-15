@@ -1,9 +1,5 @@
 name: core
 on:
-  push:
-    paths: ["core/**", "ffi/**", "tools/**", "Cargo.toml", "Cargo.lock", ".github/workflows/core.yml"]
-  pull_request:
-    paths: ["core/**", "ffi/**", "tools/**", "Cargo.toml", "Cargo.lock"]
   workflow_dispatch:
 
 jobs:
