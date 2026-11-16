@@ -85,8 +85,8 @@ hmac-secret salt, `HKDF-SHA256 → AES-256-GCM` over the deflated JSON vault
 
 ## Credits
 
-Thanks to **[@pascalep](https://github.com/pascalep)**, who wrote an
-independent Android reader for FidoParole vaults before this app existed and shared
+Thanks to **[ordanexa/fidoparole-android-reader](https://github.com/ordanexa/fidoparole-android-reader)**, project 
+for independent Android reader for FidoParole vaults before this app existed and shared
 it with Token2. From his work we took:
 
 - the **independent CTAP simulator** (`tools/sim/authenticator.py`, built on Yubico's
