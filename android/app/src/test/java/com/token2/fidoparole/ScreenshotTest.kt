@@ -3,6 +3,8 @@ package com.token2.fidoparole
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.token2.fidoparole.ui.App
@@ -49,6 +51,10 @@ class ScreenshotTest {
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screens/3-entry.png")
 
+        compose.onNodeWithText("Generate password").assertDoesNotExist()
+        compose.onNodeWithText("Edit").performClick()
+        compose.onNodeWithText("Generate password").assertExists()
+        compose.onRoot().captureRoboImage("build/screens/3b-entry-edit.png")
         vm.update(uniffi.fidoparole_ffi.EntryField.NOTES, "Recovery codes are in the safe.")
         vm.closeEntry()
         compose.waitForIdle()

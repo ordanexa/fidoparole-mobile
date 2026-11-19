@@ -1,3 +1,29 @@
+# Ordanexa Android fork
+
+This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mobile) adds a read-only default to the Android app.
+
+- Opened vaults start in **Read-only** mode. Browse, search, show/hide and copy work immediately. Encrypted backup export is also available.
+- Choose **Edit** to enable changes. Entry fields, password generation, add/delete, save, import, copy-to-another-key, vault creation and deletion are guarded in the Android ViewModel as well as the UI.
+- A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.
+- Opening another vault or locking resets the Edit permission. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
+
+Android test build **0.3.0-ordanexa.0.1.0-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
+
+[Download APK](apks/fidoparole-mobile-ordanexa-0.1.0-test.apk?raw=true) · [SHA-256 checksum](apks/SHA256SUMS)
+
+Device testing of the read-only/edit transition over USB and NFC is pending. Existing fingerprint and NFC implementations are inherited from upstream.
+
+## Android device check
+
+1. Open a vault by USB, then NFC. Confirm Read-only is shown and no add, generate, save, import or delete action is offered.
+2. Open an entry. Show/hide and copy its password. Confirm touching the displayed fields cannot edit them.
+3. Choose Edit, modify a dummy entry and save. Confirm the vault returns to Read-only and can be reopened with the change.
+4. Choose Edit without changing anything, then Done. Confirm Read-only resumes.
+5. Make an unsaved edit, then Done. Confirm the app asks you to save or lock instead of losing the edit.
+6. Lock and reopen. Confirm Read-only is restored. Test backup export in Read-only and import/copy-to-key only after Edit using test data and a backup key.
+
+---
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo/wordmark-dark.svg">

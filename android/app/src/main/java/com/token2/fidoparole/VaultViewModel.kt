@@ -42,6 +42,8 @@ data class Busy(val text: String, val waitingForTag: Boolean = false, val touch:
 typealias BiometricGate = suspend (title: String, subtitle: String, cipher: javax.crypto.Cipher) -> javax.crypto.Cipher
 
 data class UiState(
+    /** Explicit write permission for this UI session; every opened vault starts read-only. */
+    val editing: Boolean = false,
     val usbKeys: List<com.token2.fidoparole.keys.UsbKey> = emptyList(),
     /** null = NFC, otherwise the chosen USB key's id. */
     val usbChoice: String? = null,
@@ -114,6 +116,29 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setNfcAvailable(available: Boolean) = _ui.update { it.copy(nfcAvailable = available) }
+
+    fun enableEditing() {
+        if (_ui.value.busy == null && job?.isActive != true) _ui.update { it.copy(editing = true) }
+    }
+
+    fun finishEditing() {
+        if (_ui.value.busy != null || job?.isActive == true) return
+        if (_ui.value.status?.dirty == true) {
+            _ui.update { it.copy(error = "Save your changes, or lock the vault to discard them, before returning to read-only mode.") }
+            return
+        }
+        _ui.update { it.copy(editing = false) }
+    }
+
+    private fun writeAccess(): Boolean {
+        if (_ui.value.editing) return true
+        _ui.update { it.copy(error = "Read-only mode. Choose Edit before changing the vault or writing to a key.") }
+        return false
+    }
+
+    private inline fun edit(block: () -> Unit) {
+        if (writeAccess()) guard(block)
+    }
 
     // ------------------------------------------------------------- keys ----
 
@@ -267,11 +292,13 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelChoose() { _ui.value.choices?.forEach { it.second.lock() }; _ui.update { it.copy(choices = null) } }
 
     fun create(name: String, pin: String, fingerprint: Boolean) {
+        if (!writeAccess()) return
         val choice = currentChoice()
         if (name.isBlank()) { _ui.update { it.copy(error = "Give the vault a name") }; return }
         val p = if (fingerprint) null else pin.ifEmpty { _ui.update { it.copy(error = "Enter the key's PIN") }; return }
         op("Creating the vault — touch your key each time it blinks (twice).", choice,
             nfcText = "Creating the vault — keep holding the key against the phone…") { link ->
+            if (!writeAccess()) return@op
             val v = createVault(link!!, p, name.trim())
             sessionKey = choice
             open(v)
@@ -282,7 +309,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     private fun open(v: VaultSession) {
         session = v
         val st = v.status()
-        _ui.update { it.copy(choices = null, status = st, entries = v.entries(""), query = "", entry = null, revealed = null,
+        _ui.update { it.copy(editing = false, choices = null, status = st, entries = v.entries(""), query = "", entry = null, revealed = null,
             message = st.notice ?: st.problem) }
     }
 
@@ -299,21 +326,21 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     fun closeEntry() { _ui.update { it.copy(entry = null, revealed = null) }; refresh() }
 
-    fun addEntry() = guard {
+    fun addEntry() = edit {
         val id = session!!.addEntry("New entry")
         refresh()
         openEntry(id)
     }
 
-    fun update(field: EntryField, value: String) = guard {
+    fun update(field: EntryField, value: String) = edit {
         val v = session!!
-        val id = _ui.value.entry?.id ?: return@guard
+        val id = _ui.value.entry?.id ?: return@edit
         v.updateEntry(id, field, value)
         _ui.update { it.copy(entry = v.entry(id), status = v.status(), revealed = if (field == EntryField.PASSWORD) value else it.revealed) }
     }
 
-    fun deleteEntry() = guard {
-        val id = _ui.value.entry?.id ?: return@guard
+    fun deleteEntry() = edit {
+        val id = _ui.value.entry?.id ?: return@edit
         session!!.deleteEntry(id)
         closeEntry()
     }
@@ -323,8 +350,8 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(revealed = if (it.revealed == null) session!!.password(e.id) else null) }
     }
 
-    fun generate(opts: GenOptions) = guard {
-        val id = _ui.value.entry?.id ?: return@guard
+    fun generate(opts: GenOptions) = edit {
+        val id = _ui.value.entry?.id ?: return@edit
         session!!.generatePassword(id, opts)
         _ui.update { it.copy(entry = session!!.entry(id), revealed = session!!.password(id), status = session!!.status(), message = "New password generated") }
     }
@@ -363,19 +390,22 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------- key writes --
 
     fun save() {
+        if (!writeAccess()) return
         val v = session ?: return
         val choice = keyForSessionOps()
         op(if (_ui.value.status?.pinSaved == false) "Saving — touch the fingerprint sensor when the key blinks." else "Saving to the key…", choice,
             nfcText = "Saving to the key — keep holding it against the phone…") { link ->
+            if (!writeAccess() || session !== v) return@op
             // Over NFC each tap may be a different key: make sure it's this vault's key and unchanged.
             if (choice is KeyChoice.Nfc && v.reconnect(link!!)) {
                 _ui.update { it.copy(error = "The vault on this key changed since you opened it (saved from another device). Lock and unlock again to see it, or save once more to overwrite it.") }
                 refresh()
                 return@op
             }
+            if (!writeAccess() || session !== v) return@op
             v.save(link!!)
             refresh()
-            _ui.update { it.copy(message = "Saved to the key") }
+            _ui.update { it.copy(editing = false, message = "Saved to the key") }
         }
     }
 
@@ -386,22 +416,26 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun copyToOtherKey(useUsb: com.token2.fidoparole.keys.UsbKey?, pin: String, name: String) {
+        if (!writeAccess()) return
         val v = session ?: return
         if (pin.isEmpty()) { _ui.update { it.copy(error = "Enter the target key's PIN") }; return }
         val choice = if (useUsb != null) KeyChoice.Usb(useUsb) else KeyChoice.Nfc
         op("Copying — the target key blinks twice; touch it each time.", choice,
             nfcText = "Copying to this key — keep holding it against the phone…") { link ->
+            if (!writeAccess() || session !== v) return@op
             v.copyToKey(link!!, pin, name.trim())
             _ui.update { it.copy(message = "The vault is now also on that key. The copies are independent.") }
         }
     }
 
     fun deleteVault() {
+        if (!writeAccess()) return
         val v = session ?: return
         op("Removing the vault from the key…", keyForSessionOps(), nfcText = "Removing the vault — keep holding the key against the phone…") { link ->
+            if (!writeAccess() || session !== v) return@op
             v.deleteFromKey(link!!)
             session = null
-            _ui.update { it.copy(status = null, entries = emptyList(), entry = null, revealed = null, message = "Vault deleted from the key") }
+            _ui.update { it.copy(editing = false, status = null, entries = emptyList(), entry = null, revealed = null, message = "Vault deleted from the key") }
         }
     }
 
@@ -416,10 +450,12 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun importBackup(uri: Uri, passphrase: String, replace: Boolean) {
+        if (!writeAccess()) return
         val v = session ?: return
         op("Decrypting the backup…", null) {
             val bytes = getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: throw FpException.Other("Could not read the backup file")
+            if (!writeAccess() || session !== v) return@op
             val msg = v.importBackup(bytes, passphrase, replace)
             refresh()
             _ui.update { it.copy(message = "$msg Save to the key to keep it.") }
@@ -432,7 +468,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         session?.lock()
         session = null
         clipHandler.removeCallbacksAndMessages(null)
-        _ui.update { it.copy(status = null, entries = emptyList(), entry = null, revealed = null, choices = null, query = "") }
+        _ui.update { it.copy(editing = false, status = null, entries = emptyList(), entry = null, revealed = null, choices = null, query = "") }
     }
 
     fun onBackground() { backgroundSince = SystemClock.elapsedRealtime() }

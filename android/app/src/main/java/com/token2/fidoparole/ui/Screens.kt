@@ -69,7 +69,7 @@ fun StartScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
     var newName by remember { mutableStateOf("Personal") }
     var showCreate by remember { mutableStateOf(false) }
     var savePin by remember { mutableStateOf(false) }
-    Scaffold(topBar = { TopAppBar(title = { Brandmark() }) }, snackbarHost = { SnackbarHost(snack) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Brandmark() }, actions = { EditModeAction(s, vm) }) }, snackbarHost = { SnackbarHost(snack) }) { pad ->
         Column(Modifier.padding(pad).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Your passwords, on your key", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Text("Plug in your FIDO2 key, or hold it to the back of the phone when asked.", color = MaterialTheme.colorScheme.secondary)
@@ -112,9 +112,9 @@ fun StartScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
             } else OutlinedButton(onClick = unlockAction, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.LockOpen, null); Spacer(Modifier.width(8.dp)); Text("Unlock with typed PIN")
             }
-            HorizontalDivider()
-            TextButton(onClick = { showCreate = !showCreate }) { Text(if (showCreate) "Hide" else "Create a new vault on this key…") }
-            if (showCreate) {
+            if (s.editing) HorizontalDivider()
+            if (s.editing) TextButton(onClick = { showCreate = !showCreate }) { Text(if (showCreate) "Hide" else "Create a new vault on this key…") }
+            if (s.editing && showCreate) {
                 Text("Makes a vault credential on the key and stores an empty encrypted vault in its largeBlob storage. Uses the PIN above. Over USB the key blinks twice: touch it each time. Over NFC just keep holding it to the phone.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 OutlinedTextField(value = newName, onValueChange = { if (it.toByteArray().size <= 32) newName = it }, label = { Text("Vault name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -182,6 +182,13 @@ fun KeyChips(i: uniffi.fidoparole_ffi.KeyInfo) {
     i.problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }
 
+@Composable
+fun EditModeAction(s: UiState, vm: VaultViewModel) {
+    TextButton(onClick = { if (s.editing) vm.finishEditing() else vm.enableEditing() }, enabled = s.busy == null) {
+        Text(if (s.editing) "Done" else "Edit")
+    }
+}
+
 // ------------------------------------------------------------ choose ----
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -215,26 +222,27 @@ fun VaultScreen(s: UiState, vm: VaultViewModel, files: FilePickers, snack: Snack
     var dialog by remember { mutableStateOf<String?>(null) }
     Scaffold(
         topBar = {
-            TopAppBar(title = { Column { Text(st.name, fontWeight = FontWeight.SemiBold); Text("${st.entryCount} entries", style = MaterialTheme.typography.bodySmall) } },
+            TopAppBar(title = { Column { Text(st.name, fontWeight = FontWeight.SemiBold); Text("${st.entryCount} entries · ${if (s.editing) "Editing" else "Read-only"}", style = MaterialTheme.typography.bodySmall) } },
                 actions = {
+                    EditModeAction(s, vm)
                     IconButton(onClick = vm::lock) { Icon(Icons.Filled.Lock, "Lock") }
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text("Save to key") }, onClick = { menu = false; vm.save() })
-                        DropdownMenuItem(text = { Text("Copy vault to another key…") }, onClick = { menu = false; dialog = "copy" })
+                        if (s.editing) DropdownMenuItem(text = { Text("Save to key") }, onClick = { menu = false; vm.save() })
+                        if (s.editing) DropdownMenuItem(text = { Text("Copy vault to another key…") }, onClick = { menu = false; dialog = "copy" })
                         DropdownMenuItem(text = { Text("Export encrypted backup…") }, onClick = { menu = false; dialog = "export" })
-                        DropdownMenuItem(text = { Text("Import backup…") }, onClick = { menu = false; dialog = "import" })
-                        HorizontalDivider()
-                        DropdownMenuItem(text = { Text("Delete vault from key…", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "delete" })
+                        if (s.editing) DropdownMenuItem(text = { Text("Import backup…") }, onClick = { menu = false; dialog = "import" })
+                        if (s.editing) HorizontalDivider()
+                        if (s.editing) DropdownMenuItem(text = { Text("Delete vault from key…", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "delete" })
                     }
                 })
         },
-        floatingActionButton = { FloatingActionButton(onClick = vm::addEntry, containerColor = MaterialTheme.colorScheme.primary) { Icon(Icons.Filled.Add, "New entry") } },
+        floatingActionButton = { if (s.editing) FloatingActionButton(onClick = vm::addEntry, containerColor = MaterialTheme.colorScheme.primary) { Icon(Icons.Filled.Add, "New entry") } },
         snackbarHost = { SnackbarHost(snack) },
     ) { pad ->
         Column(Modifier.padding(pad)) {
             if (st.max > 0u) StorageBar(st.used.toLong(), st.max.toLong())
-            if (st.dirty) {
+            if (s.editing && st.dirty) {
                 Surface(color = Color(0xFFFFF8E6), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Unsaved changes — only in memory until you save them to the key.", color = Color(0xFF7A5A00), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
@@ -245,7 +253,11 @@ fun VaultScreen(s: UiState, vm: VaultViewModel, files: FilePickers, snack: Snack
             OutlinedTextField(value = s.query, onValueChange = vm::search, placeholder = { Text("Search") }, singleLine = true,
                 leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth().padding(16.dp))
             if (s.entries.isEmpty()) {
-                Text(if (s.query.isEmpty()) "No entries yet. Tap + to add one." else "No matches.", color = MaterialTheme.colorScheme.secondary,
+                Text(when {
+                    s.query.isNotEmpty() -> "No matches."
+                    s.editing -> "No entries yet. Tap + to add one."
+                    else -> "No entries in this vault."
+                }, color = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center)
             }
             LazyColumn(contentPadding = PaddingValues(bottom = 88.dp)) {
@@ -300,18 +312,21 @@ fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
         topBar = {
             TopAppBar(title = { Text(e.title.ifEmpty { "Entry" }) },
                 navigationIcon = { IconButton(onClick = vm::closeEntry) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                actions = { IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, "Delete entry") } })
+                actions = {
+                    EditModeAction(s, vm)
+                    if (s.editing) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, "Delete entry") }
+                })
         },
         snackbarHost = { SnackbarHost(snack) },
     ) { pad ->
         Column(Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Field("Title", e.title) { vm.update(EntryField.TITLE, it) }
-            Field("Username", e.username, onCopy = { vm.copy(EntryField.USERNAME) }) { vm.update(EntryField.USERNAME, it) }
+            Field("Title", e.title, readOnly = !s.editing) { vm.update(EntryField.TITLE, it) }
+            Field("Username", e.username, readOnly = !s.editing, onCopy = { vm.copy(EntryField.USERNAME) }) { vm.update(EntryField.USERNAME, it) }
             // Password: hidden until "show"; editing works on the revealed text.
             OutlinedTextField(
                 value = s.revealed ?: if (e.hasPassword) "••••••••••••" else "",
-                onValueChange = { if (s.revealed != null || !e.hasPassword) vm.update(EntryField.PASSWORD, it) },
-                label = { Text("Password") }, singleLine = true, readOnly = s.revealed == null && e.hasPassword,
+                onValueChange = { if (s.editing && (s.revealed != null || !e.hasPassword)) vm.update(EntryField.PASSWORD, it) },
+                label = { Text("Password") }, singleLine = true, readOnly = !s.editing || (s.revealed == null && e.hasPassword),
                 textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
                 visualTransformation = VisualTransformation.None,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
@@ -322,12 +337,12 @@ fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
                     }
                 },
                 modifier = Modifier.fillMaxWidth())
-            OutlinedButton(onClick = { gen = true }) { Icon(Icons.Filled.Casino, null); Spacer(Modifier.width(6.dp)); Text("Generate password") }
-            Field("URL", e.url, keyboard = KeyboardType.Uri, onCopy = { vm.copy(EntryField.URL) }) { vm.update(EntryField.URL, it) }
-            Field("Notes", e.notes, single = false) { vm.update(EntryField.NOTES, it) }
+            if (s.editing) OutlinedButton(onClick = { gen = true }) { Icon(Icons.Filled.Casino, null); Spacer(Modifier.width(6.dp)); Text("Generate password") }
+            Field("URL", e.url, readOnly = !s.editing, keyboard = KeyboardType.Uri, onCopy = { vm.copy(EntryField.URL) }) { vm.update(EntryField.URL, it) }
+            Field("Notes", e.notes, readOnly = !s.editing, single = false) { vm.update(EntryField.NOTES, it) }
             Text("Modified ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(e.modified * 1000))}",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-            if (s.status?.dirty == true) Button(onClick = vm::save, modifier = Modifier.fillMaxWidth()) { Text("Save to key") }
+            if (s.editing && s.status?.dirty == true) Button(onClick = vm::save, modifier = Modifier.fillMaxWidth()) { Text("Save to key") }
         }
     }
     if (gen) GeneratorDialog(onDismiss = { gen = false }) { gen = false; vm.generate(it) }
@@ -338,8 +353,8 @@ fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
 }
 
 @Composable
-fun Field(label: String, value: String, single: Boolean = true, keyboard: KeyboardType = KeyboardType.Text, onCopy: (() -> Unit)? = null, onChange: (String) -> Unit) {
-    OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) }, singleLine = single, minLines = if (single) 1 else 3,
+fun Field(label: String, value: String, single: Boolean = true, readOnly: Boolean = false, keyboard: KeyboardType = KeyboardType.Text, onCopy: (() -> Unit)? = null, onChange: (String) -> Unit) {
+    OutlinedTextField(value = value, onValueChange = onChange, readOnly = readOnly, label = { Text(label) }, singleLine = single, minLines = if (single) 1 else 3,
         keyboardOptions = KeyboardOptions(keyboardType = keyboard),
         trailingIcon = onCopy?.let { { IconButton(onClick = it) { Icon(Icons.Filled.ContentCopy, "Copy") } } },
         modifier = Modifier.fillMaxWidth())
