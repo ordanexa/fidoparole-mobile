@@ -174,7 +174,6 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onStart() { super.onStart(); vm.setNfcAvailable(nfc?.isEnabled == true); vm.onForeground(); vm.refreshUsb(); vm.refreshPinState() }
-    override fun onUserLeaveHint() { super.onUserLeaveHint(); vm.onBackground() }
     override fun onStop() { super.onStop(); vm.onBackground(preserveEditPrompt = editPromptActive && !isFinishing) }
     override fun onPause() { super.onPause(); readerOn = false; nfc?.disableReaderMode(this) }
 

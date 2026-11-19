@@ -115,6 +115,28 @@ class ReadOnlyTest {
         assertFalse(vm.ui.value.editAuthenticating)
     }
 
+    @Test fun systemCredentialRoundTripCanFinishButAnExpiredSessionCannot() {
+        val pending = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        vm.editGate = { pending.await() }
+        vm.enableEditing()
+        ShadowLooper.idleMainLooper()
+        vm.onBackground(preserveEditPrompt = true)
+        assertFalse(vm.ui.value.editing)
+        vm.onForeground()
+        pending.complete(true)
+        await { !vm.ui.value.editAuthenticating }
+        assertTrue(vm.ui.value.editing)
+        vm.finishEditing()
+        val stale = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        vm.editGate = { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stale.await() } }
+        vm.enableEditing()
+        ShadowLooper.idleMainLooper()
+        vm.lock()
+        stale.complete(true)
+        ShadowLooper.idleMainLooper()
+        assertFalse(vm.ui.value.editing)
+    }
+
     @Test fun explicitEditingCanSaveAndAutomaticallyReturnsToReadOnly() {
         vm.enableEditing()
         await { !vm.ui.value.editAuthenticating }

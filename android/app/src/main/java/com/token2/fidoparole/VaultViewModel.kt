@@ -509,7 +509,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onBackground(preserveEditPrompt: Boolean = false) {
         // The system credential activity is part of our fresh authentication.
-        // Home/task switching and screen-off explicitly cancel pending prompts.
+        // Existing Edit permission is always revoked; screen-off cancels pending prompts.
         if (preserveEditPrompt && _ui.value.editAuthenticating) _ui.update { it.copy(editing = false) }
         else revokeEditing()
         backgroundSince = SystemClock.elapsedRealtime()
