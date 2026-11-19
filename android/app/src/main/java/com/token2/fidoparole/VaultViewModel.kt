@@ -507,7 +507,13 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(editing = false, status = null, entries = emptyList(), entry = null, revealed = null, choices = null, query = "") }
     }
 
-    fun onBackground() { revokeEditing(); backgroundSince = SystemClock.elapsedRealtime() }
+    fun onBackground(preserveEditPrompt: Boolean = false) {
+        // The system credential activity is part of our fresh authentication.
+        // Home/task switching and screen-off explicitly cancel pending prompts.
+        if (preserveEditPrompt && _ui.value.editAuthenticating) _ui.update { it.copy(editing = false) }
+        else revokeEditing()
+        backgroundSince = SystemClock.elapsedRealtime()
+    }
 
     /** Auto-lock: 2 minutes in the background, 8 with unsaved changes. */
     fun onForeground() {

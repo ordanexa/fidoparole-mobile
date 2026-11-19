@@ -24,6 +24,7 @@ import com.token2.fidoparole.ui.App
 import com.token2.fidoparole.ui.FidoParoleTheme
 import com.token2.fidoparole.ui.FilePickers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import uniffi.fidoparole_ffi.FpException
 import javax.crypto.Cipher
@@ -35,6 +36,7 @@ class MainActivity : FragmentActivity() {
     private val vm: VaultViewModel by viewModels()
     private var nfc: NfcAdapter? = null
     private var readerOn = false
+    private var editPromptActive = false
     private var pendingExport: ((android.net.Uri) -> Unit)? = null
     private var pendingImport: ((android.net.Uri) -> Unit)? = null
 
@@ -48,6 +50,7 @@ class MainActivity : FragmentActivity() {
     private val usbEvents = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             when (i.action) {
+                Intent.ACTION_SCREEN_OFF -> vm.onBackground()
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> vm.refreshUsb()
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                     val dev: UsbDevice? = if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
@@ -68,6 +71,7 @@ class MainActivity : FragmentActivity() {
         nfc = NfcAdapter.getDefaultAdapter(this)
         vm.setNfcAvailable(nfc?.isEnabled == true)
         ContextCompat.registerReceiver(this, usbEvents, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED); addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }, ContextCompat.RECEIVER_EXPORTED)
 
@@ -108,7 +112,19 @@ class MainActivity : FragmentActivity() {
     }
 
     /** Every Edit request opens a new system prompt; never reuse the unlock result. */
-    private suspend fun authenticateEdit(): Boolean = suspendCancellableCoroutine { cont ->
+    private suspend fun authenticateEdit(): Boolean {
+        editPromptActive = true
+        try {
+            val approved = awaitEditAuthentication()
+            // Device-credential confirmation can stop this activity. Wait for its return.
+            lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+            return approved
+        } finally {
+            editPromptActive = false
+        }
+    }
+
+    private suspend fun awaitEditAuthentication(): Boolean = suspendCancellableCoroutine { cont ->
         val authenticators = if (Build.VERSION.SDK_INT >= 30)
             androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -158,7 +174,8 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onStart() { super.onStart(); vm.setNfcAvailable(nfc?.isEnabled == true); vm.onForeground(); vm.refreshUsb(); vm.refreshPinState() }
-    override fun onStop() { super.onStop(); vm.onBackground() }
+    override fun onUserLeaveHint() { super.onUserLeaveHint(); vm.onBackground() }
+    override fun onStop() { super.onStop(); vm.onBackground(preserveEditPrompt = editPromptActive && !isFinishing) }
     override fun onPause() { super.onPause(); readerOn = false; nfc?.disableReaderMode(this) }
 
     override fun onDestroy() {
