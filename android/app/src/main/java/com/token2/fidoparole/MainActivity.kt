@@ -64,6 +64,7 @@ class MainActivity : FragmentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         vm.gate = ::biometric
+        vm.editGate = ::authenticateEdit
         nfc = NfcAdapter.getDefaultAdapter(this)
         vm.setNfcAvailable(nfc?.isEnabled == true)
         ContextCompat.registerReceiver(this, usbEvents, IntentFilter().apply {
@@ -106,6 +107,37 @@ class MainActivity : FragmentActivity() {
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
     }
 
+    /** Every Edit request opens a new system prompt; never reuse the unlock result. */
+    private suspend fun authenticateEdit(): Boolean = suspendCancellableCoroutine { cont ->
+        val authenticators = if (Build.VERSION.SDK_INT >= 30)
+            androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        else androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+        if (androidx.biometric.BiometricManager.from(this).canAuthenticate(authenticators) !=
+            androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+            cont.resumeWithException(FpException.Other("Set up a fingerprint or supported screen lock to enable editing."))
+            return@suspendCancellableCoroutine
+        }
+        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                if (cont.isActive) cont.resume(true)
+            }
+            override fun onAuthenticationError(code: Int, msg: CharSequence) {
+                if (!cont.isActive) return
+                val cancelled = code == BiometricPrompt.ERROR_USER_CANCELED || code == BiometricPrompt.ERROR_NEGATIVE_BUTTON || code == BiometricPrompt.ERROR_CANCELED
+                if (cancelled) cont.resume(false) else cont.resumeWithException(FpException.Other(msg.toString()))
+            }
+        })
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Authenticate to edit")
+            .setSubtitle("Confirm your identity to allow changes to the vault")
+            .setAllowedAuthenticators(authenticators)
+            .apply { if (Build.VERSION.SDK_INT < 30) setNegativeButtonText("Cancel") }
+            .build()
+        cont.invokeOnCancellation { prompt.cancelAuthentication() }
+        prompt.authenticate(info)
+    }
+
     private fun setReader(on: Boolean) {
         val adapter = nfc ?: return
         if (on == readerOn) return
@@ -132,6 +164,7 @@ class MainActivity : FragmentActivity() {
     override fun onDestroy() {
         unregisterReceiver(usbEvents)
         vm.gate = null
+        vm.editGate = null
         super.onDestroy()
     }
 }

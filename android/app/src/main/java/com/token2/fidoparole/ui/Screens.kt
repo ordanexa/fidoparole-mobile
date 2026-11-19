@@ -184,8 +184,8 @@ fun KeyChips(i: uniffi.fidoparole_ffi.KeyInfo) {
 
 @Composable
 fun EditModeAction(s: UiState, vm: VaultViewModel) {
-    TextButton(onClick = { if (s.editing) vm.finishEditing() else vm.enableEditing() }, enabled = s.busy == null) {
-        Text(if (s.editing) "Done" else "Edit")
+    TextButton(onClick = { if (s.editing) vm.finishEditing() else vm.enableEditing() }, enabled = s.busy == null && !s.editAuthenticating) {
+        Text(if (s.editAuthenticating) "Authenticating…" else if (s.editing) "Done" else "Edit")
     }
 }
 

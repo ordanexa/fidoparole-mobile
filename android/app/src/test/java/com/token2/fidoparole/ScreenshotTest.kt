@@ -33,6 +33,7 @@ class ScreenshotTest {
         compose.setContent { FidoParoleTheme { App(vm, FilePickers({ _, _ -> }, {})) } }
         compose.onRoot().captureRoboImage("build/screens/1-start.png")
 
+        vm.editGate = { true }
         vm.startDemo()
         try {
             compose.waitUntil(15_000) {
@@ -53,6 +54,7 @@ class ScreenshotTest {
 
         compose.onNodeWithText("Generate password").assertDoesNotExist()
         compose.onNodeWithText("Edit").performClick()
+        compose.waitUntil(5_000) { org.robolectric.shadows.ShadowLooper.idleMainLooper(); vm.ui.value.editing }
         compose.onNodeWithText("Generate password").assertExists()
         compose.onRoot().captureRoboImage("build/screens/3b-entry-edit.png")
         vm.update(uniffi.fidoparole_ffi.EntryField.NOTES, "Recovery codes are in the safe.")

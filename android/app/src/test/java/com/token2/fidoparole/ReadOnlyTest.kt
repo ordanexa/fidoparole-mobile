@@ -22,6 +22,7 @@ class ReadOnlyTest {
 
     @Before fun openDemo() {
         vm = VaultViewModel(ApplicationProvider.getApplicationContext<Application>())
+        vm.editGate = { true }
         vm.startDemo()
         await { vm.ui.value.status != null || vm.ui.value.error != null }
         assertNull(vm.ui.value.error)
@@ -71,8 +72,52 @@ class ReadOnlyTest {
         assertNull(vm.ui.value.error)
     }
 
+    @Test fun editingRequiresFreshAuthenticationAndCancellationNeverGrantsAccess() {
+        vm.editGate = null
+        vm.enableEditing()
+        assertFalse(vm.ui.value.editing)
+        vm.clearError()
+        var prompts = 0
+        vm.editGate = { prompts++; false }
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        assertFalse(vm.ui.value.editing)
+        vm.editGate = { prompts++; true }
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        assertTrue(vm.ui.value.editing)
+        vm.finishEditing()
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        assertTrue(vm.ui.value.editing)
+        assertEquals(3, prompts)
+    }
+
+    @Test fun backgroundAndDetachRevokeEditingAndPendingAuthentication() {
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        vm.onBackground()
+        assertFalse(vm.ui.value.editing)
+        vm.onForeground()
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        vm.onUsbDetached("fixture")
+        assertFalse(vm.ui.value.editing)
+        val pending = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        vm.editGate = { pending.await() }
+        vm.enableEditing()
+        ShadowLooper.idleMainLooper()
+        assertTrue(vm.ui.value.editAuthenticating)
+        vm.lock()
+        pending.complete(true)
+        ShadowLooper.idleMainLooper()
+        assertFalse(vm.ui.value.editing)
+        assertFalse(vm.ui.value.editAuthenticating)
+    }
+
     @Test fun explicitEditingCanSaveAndAutomaticallyReturnsToReadOnly() {
         vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
         assertTrue(vm.ui.value.editing)
         val notes = vm.ui.value.entry!!.notes + "\nRead-only regression fixture"
         vm.update(EntryField.NOTES, notes)
@@ -95,9 +140,11 @@ class ReadOnlyTest {
 
     @Test fun doneWithoutChangesAndLockBothRevokeEditing() {
         vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
         vm.finishEditing()
         assertFalse(vm.ui.value.editing)
         vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
         vm.lock()
         assertFalse(vm.ui.value.editing)
         assertNull(vm.ui.value.status)

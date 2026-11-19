@@ -44,6 +44,7 @@ typealias BiometricGate = suspend (title: String, subtitle: String, cipher: java
 data class UiState(
     /** Explicit write permission for this UI session; every opened vault starts read-only. */
     val editing: Boolean = false,
+    val editAuthenticating: Boolean = false,
     val usbKeys: List<com.token2.fidoparole.keys.UsbKey> = emptyList(),
     /** null = NFC, otherwise the chosen USB key's id. */
     val usbChoice: String? = null,
@@ -79,6 +80,10 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("ui", Context.MODE_PRIVATE)
     /** Set by the activity while it is alive. */
     var gate: BiometricGate? = null
+    /** A fresh system authentication, independent of whether a token PIN was saved. */
+    var editGate: (suspend () -> Boolean)? = null
+    private var editEpoch = 0L
+    private var editJob: Job? = null
     private val _ui = MutableStateFlow(UiState())
     val ui: StateFlow<UiState> = _ui
 
@@ -118,7 +123,37 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun setNfcAvailable(available: Boolean) = _ui.update { it.copy(nfcAvailable = available) }
 
     fun enableEditing() {
-        if (_ui.value.busy == null && job?.isActive != true) _ui.update { it.copy(editing = true) }
+        if (_ui.value.editing || _ui.value.editAuthenticating || _ui.value.busy != null || job?.isActive == true) return
+        val authenticate = editGate ?: run {
+            _ui.update { it.copy(error = "Device authentication is unavailable. Editing remains locked.") }
+            return
+        }
+        val epoch = editEpoch
+        val vault = session
+        _ui.update { it.copy(editAuthenticating = true, error = null) }
+        editJob = viewModelScope.launch {
+            try {
+                val approved = authenticate()
+                if (approved && epoch == editEpoch && session === vault && _ui.value.busy == null) {
+                    _ui.update { it.copy(editing = true) }
+                }
+            } catch (_: PromptCancelled) {
+                // Cancellation leaves the vault read-only.
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                if (epoch == editEpoch) _ui.update { it.copy(error = e.userText()) }
+            } finally {
+                if (epoch == editEpoch) _ui.update { it.copy(editAuthenticating = false) }
+            }
+        }
+    }
+
+    private fun revokeEditing() {
+        editEpoch++
+        editJob?.cancel()
+        editJob = null
+        _ui.update { it.copy(editing = false, editAuthenticating = false) }
     }
 
     fun finishEditing() {
@@ -127,7 +162,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             _ui.update { it.copy(error = "Save your changes, or lock the vault to discard them, before returning to read-only mode.") }
             return
         }
-        _ui.update { it.copy(editing = false) }
+        revokeEditing()
     }
 
     private fun writeAccess(): Boolean {
@@ -150,7 +185,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun onUsbDetached(name: String) { access.onUsbDetached(name); refreshUsb() }
+    fun onUsbDetached(name: String) { revokeEditing(); access.onUsbDetached(name); refreshUsb() }
 
     fun chooseUsb(id: String?) = _ui.update { it.copy(usbChoice = id, keyInfo = null) }
 
@@ -465,13 +500,14 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     // ----------------------------------------------------------- locking --
 
     fun lock() {
+        revokeEditing()
         session?.lock()
         session = null
         clipHandler.removeCallbacksAndMessages(null)
         _ui.update { it.copy(editing = false, status = null, entries = emptyList(), entry = null, revealed = null, choices = null, query = "") }
     }
 
-    fun onBackground() { backgroundSince = SystemClock.elapsedRealtime() }
+    fun onBackground() { revokeEditing(); backgroundSince = SystemClock.elapsedRealtime() }
 
     /** Auto-lock: 2 minutes in the background, 8 with unsaved changes. */
     fun onForeground() {
