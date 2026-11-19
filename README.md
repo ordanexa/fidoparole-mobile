@@ -11,6 +11,8 @@ Android test build **0.3.0-ordanexa.0.1.0-test** uses package `com.ordanexa.fido
 
 [Download APK](apks/fidoparole-mobile-ordanexa-0.1.0-test.apk?raw=true) · [SHA-256 checksum](apks/SHA256SUMS)
 
+Validation passed in [build run 44614993723](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44614993723): 23 Rust tests and all 7 Android tests, including ViewModel mutation guards and Compose UI checks. The release APK package, version, signing certificate and 16 KiB ZIP alignment were verified. The APK was built from source commit `9c0bc9767644767de670bbfb1ef439d6c2825d35`.
+
 Device testing of the read-only/edit transition over USB and NFC is pending. Existing fingerprint and NFC implementations are inherited from upstream.
 
 ## Android device check
