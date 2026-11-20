@@ -72,7 +72,7 @@ fun EditTokenDialog(s: UiState, vm: VaultViewModel) {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Phone fingerprint is unavailable. Connect your vault's security key by USB or hold it to the phone using NFC.")
                 KeyPicker(s.usbKeys, s.usbChoice, s.nfcAvailable, vm::chooseUsb, vm::refreshUsb)
-                PinField(pin, { pin = it }, "Token PIN", s.pinAlpha, vm::setPinAlpha, enabled = !tokenFingerprint)
+                PinField(pin, { pin = it }, "Token PIN", s.pinAlpha, vm::setPinAlpha, enabled = !tokenFingerprint || s.usbChoice == null)
                 if (s.usbChoice != null && s.keyInfo?.hasFingerprint != false) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(tokenFingerprint, { tokenFingerprint = it })
