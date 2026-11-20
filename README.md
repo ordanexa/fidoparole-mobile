@@ -2,6 +2,7 @@
 
 This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mobile) adds a read-only default to the Android app.
 
+- **More → About / Info** is available on the start, vault selection, vault and entry screens, including while locked. It shows the installed version, Read-only/Edit and NFC guidance, project links and MIT license credits.
 - Opened vaults start in **Read-only** mode. Browse, search, show/hide and copy work immediately. Encrypted backup export is also available.
 - Choose **Edit** and complete a fresh phone fingerprint authentication to enable changes. Phone fingerprint works without the token present. When strong phone biometrics are unavailable, connect the vault's token over USB/NFC and authenticate with its PIN (or the token's fingerprint over USB). The device screen-lock PIN is not an Edit fallback. A saved token PIN is not required. Cancelling or failing authentication keeps Read-only active. Entry fields, password generation, add/delete, save, import, copy-to-another-key, vault creation and deletion are guarded in the Android ViewModel as well as the UI.
 - A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.

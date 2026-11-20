@@ -15,8 +15,8 @@ android {
         applicationId = "com.ordanexa.fidoparole.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.3.0-ordanexa.0.1.1-test"
+        versionCode = 7
+        versionName = "0.3.0-ordanexa.0.1.2-test"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
@@ -40,7 +40,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     sourceSets["main"].java.srcDir(layout.buildDirectory.dir("generated/uniffi"))
     sourceSets["main"].jniLibs.srcDir(layout.buildDirectory.dir("rustJniLibs"))
     packaging { jniLibs { useLegacyPackaging = false } }

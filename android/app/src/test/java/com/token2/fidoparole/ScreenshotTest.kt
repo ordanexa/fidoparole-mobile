@@ -3,6 +3,7 @@ package com.token2.fidoparole
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -27,11 +28,24 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
+    private fun checkAbout() {
+        compose.onNodeWithContentDescription("More").performClick()
+        compose.onNodeWithText("About / Info").performClick()
+        compose.onNodeWithText("FidoParole Ordanexa").assertExists()
+        compose.onNodeWithText("Version ${BuildConfig.VERSION_NAME}").assertExists()
+        compose.onNodeWithText("Read-only by default").assertExists()
+    }
+
     @Test
     fun mainScreens() {
         val vm = VaultViewModel(ApplicationProvider.getApplicationContext())
         compose.setContent { FidoParoleTheme { App(vm, FilePickers({ _, _ -> }, {})) } }
         compose.onRoot().captureRoboImage("build/screens/1-start.png")
+
+        checkAbout()
+        compose.onRoot().captureRoboImage("build/screens/0-about.png")
+        compose.onNodeWithText("Close", useUnmergedTree = true).performClick()
+        org.junit.Assert.assertFalse(vm.ui.value.editing)
 
         vm.editBiometricsAvailable = { true }
         vm.editGate = { true }
@@ -48,10 +62,18 @@ class ScreenshotTest {
         vm.clearMessage()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screens/2-vault.png")
+        checkAbout()
+        compose.onNodeWithText("Close", useUnmergedTree = true).performClick()
+        org.junit.Assert.assertFalse(vm.ui.value.editing)
 
         vm.openEntry(vm.ui.value.entries.first { it.title == "GitHub" }.id)
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screens/3-entry.png")
+        val entryBeforeAbout = vm.ui.value.entry
+        checkAbout()
+        compose.onNodeWithText("Close", useUnmergedTree = true).performClick()
+        org.junit.Assert.assertEquals(entryBeforeAbout, vm.ui.value.entry)
+        org.junit.Assert.assertFalse(vm.ui.value.editing)
 
         compose.onNodeWithText("Generate password").assertDoesNotExist()
         compose.onNodeWithText("Edit").performClick()

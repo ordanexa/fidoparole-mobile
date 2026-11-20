@@ -42,15 +42,18 @@ class FilePickers(val exportTo: (String, (android.net.Uri) -> Unit) -> Unit, val
 fun App(vm: VaultViewModel, files: FilePickers) {
     val s by vm.ui.collectAsState()
     val snack = remember { SnackbarHostState() }
+    var showAbout by remember { mutableStateOf(false) }
+    val onAbout = { showAbout = true }
     LaunchedEffect(s.message) { s.message?.let { snack.showSnackbar(it); vm.clearMessage() } }
 
     Box(Modifier.fillMaxSize()) {
         when {
-            s.status != null && s.entry != null -> EntryScreen(s, vm, snack)
-            s.status != null -> VaultScreen(s, vm, files, snack)
-            s.choices != null -> ChooseScreen(s, vm)
-            else -> StartScreen(s, vm, snack)
+            s.status != null && s.entry != null -> EntryScreen(s, vm, snack, onAbout)
+            s.status != null -> VaultScreen(s, vm, files, snack, onAbout)
+            s.choices != null -> ChooseScreen(s, vm, onAbout)
+            else -> StartScreen(s, vm, snack, onAbout)
         }
+        if (showAbout) AboutDialog { showAbout = false }
         if (s.editTokenRequired) EditTokenDialog(s, vm)
         s.busy?.let { BusyOverlay(it, onCancel = vm::cancelBusy) }
         s.error?.let { err ->
@@ -93,13 +96,13 @@ fun EditTokenDialog(s: UiState, vm: VaultViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StartScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
+fun StartScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState, onAbout: () -> Unit) {
     var pin by remember { mutableStateOf("") }
     var fingerprint by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("Personal") }
     var showCreate by remember { mutableStateOf(false) }
     var savePin by remember { mutableStateOf(false) }
-    Scaffold(topBar = { TopAppBar(title = { Brandmark() }, actions = { EditModeAction(s, vm) }) }, snackbarHost = { SnackbarHost(snack) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Brandmark() }, actions = { EditModeAction(s, vm); AboutMenuAction(onAbout) }) }, snackbarHost = { SnackbarHost(snack) }) { pad ->
         Column(Modifier.padding(pad).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Your passwords, on your key", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Text("Plug in your FIDO2 key, or hold it to the back of the phone when asked.", color = MaterialTheme.colorScheme.secondary)
@@ -223,9 +226,9 @@ fun EditModeAction(s: UiState, vm: VaultViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChooseScreen(s: UiState, vm: VaultViewModel) {
+fun ChooseScreen(s: UiState, vm: VaultViewModel, onAbout: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Choose a vault") }, navigationIcon = {
-        IconButton(onClick = vm::cancelChoose) { Icon(Icons.Filled.Close, "Cancel") } }) }) { pad ->
+        IconButton(onClick = vm::cancelChoose) { Icon(Icons.Filled.Close, "Cancel") } }, actions = { AboutMenuAction(onAbout) }) }) { pad ->
         LazyColumn(Modifier.padding(pad)) {
             itemsIndexed(s.choices.orEmpty()) { i, (name, _) ->
                 ListItem(headlineContent = { Text(name) }, leadingContent = { Icon(Icons.Filled.Lock, null) },
@@ -246,7 +249,7 @@ private fun Modifier.clickableRow(onClick: () -> Unit) = this.clickable(onClick 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VaultScreen(s: UiState, vm: VaultViewModel, files: FilePickers, snack: SnackbarHostState) {
+fun VaultScreen(s: UiState, vm: VaultViewModel, files: FilePickers, snack: SnackbarHostState, onAbout: () -> Unit) {
     val st = s.status ?: return
     var menu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
@@ -264,6 +267,8 @@ fun VaultScreen(s: UiState, vm: VaultViewModel, files: FilePickers, snack: Snack
                         if (s.editing) DropdownMenuItem(text = { Text("Import backup…") }, onClick = { menu = false; dialog = "import" })
                         if (s.editing) HorizontalDivider()
                         if (s.editing) DropdownMenuItem(text = { Text("Delete vault from key…", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "delete" })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("About / Info") }, onClick = { menu = false; onAbout() })
                     }
                 })
         },
@@ -334,7 +339,7 @@ fun Avatar(title: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
+fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState, onAbout: () -> Unit) {
     val e = s.entry ?: return
     var gen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -345,6 +350,7 @@ fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState) {
                 actions = {
                     EditModeAction(s, vm)
                     if (s.editing) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, "Delete entry") }
+                    AboutMenuAction(onAbout)
                 })
         },
         snackbarHost = { SnackbarHost(snack) },
