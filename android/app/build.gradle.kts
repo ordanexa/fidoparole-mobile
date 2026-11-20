@@ -15,8 +15,8 @@ android {
         applicationId = "com.ordanexa.fidoparole.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.3.0-ordanexa.0.1.2-test"
+        versionCode = 8
+        versionName = "1.0.0"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 

@@ -1,5 +1,9 @@
 # Ordanexa Android fork
 
+## Project status
+
+The feature scope is **frozen**. The agreed Android feature set is complete. Future maintenance is limited to bug fixes, security fixes, Android compatibility and necessary upstream updates. New features require a separate decision; document/file-vault tools are outside this project's scope.
+
 This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mobile) adds a read-only default to the Android app.
 
 - **More → About / Info** is available on the start, vault selection, vault and entry screens, including while locked. It shows the installed version, Read-only/Edit and NFC guidance, project links and MIT license credits.
