@@ -7,17 +7,24 @@ This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mob
 - A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.
 - Opening another vault, locking, backgrounding the app or detaching a USB key resets the Edit permission. NFC is connected only during individual operations: removing an NFC key between operations does not revoke Edit. Hold it to the phone again to save; Save, Done (when clean), Lock and backgrounding end Edit. Pending authentication cannot restore an expired session. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
 
-Android test build **0.3.0-ordanexa.0.1.0-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
+Android test build **0.3.0-ordanexa.0.1.1-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
 
-[Download APK](apks/fidoparole-mobile-ordanexa-0.1.0-test.apk?raw=true) · [SHA-256 checksum](apks/SHA256SUMS)
+| Variant | Download | Size | Architectures |
+| --- | --- | --- | --- |
+| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-ordanexa-0.1.1-test-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
+| Universal | [Universal APK](apks/fidoparole-mobile-ordanexa-0.1.1-test-universal.apk?raw=true) | 5.73 MiB | arm64-v8a, armeabi-v7a, x86_64 |
 
-Validation passed in [build run 44614993723](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44614993723): 23 Rust tests and all 7 Android tests, including ViewModel mutation guards and Compose UI checks. The release APK package, version, signing certificate and 16 KiB ZIP alignment were verified. The APK was built from source commit `9c0bc9767644767de670bbfb1ef439d6c2825d35`.
+[SHA-256 checksums](apks/SHA256SUMS) · [Previous 0.1.0 test APK](apks/fidoparole-mobile-ordanexa-0.1.0-test.apk?raw=true)
 
-Device testing of the read-only/edit transition over USB and NFC is pending. Existing fingerprint and NFC implementations are inherited from upstream.
+Validation passed in [build run 44671756851](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44671756851): **24 Rust tests and all 11 Android tests**, including fresh Edit authentication, token fallback with wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `cca125a8c8a5c115751e632a82064f25e24a870a`.
 
-## Next build: 0.1.1-test
+The token fallback verifies the open vault's credential and hmac-secret through a fresh authentication; it does not write to the token or replace unsaved entries. Phone-fingerprint Edit needs no token connection. Saving still requires the vault's token.
 
-Adds fresh Edit authentication (phone fingerprint, otherwise the token) and produces ARM64-only and Universal release APKs in the same Gradle build (`./gradlew assembleRelease`). Both use the same package, version and signing certificate; install either variant. ARM64 is recommended for current Samsung devices. Universal includes ARM64, ARMv7 and x86_64. Release downloads and verified checksums will be added after CI succeeds.
+Physical-device testing of the new Edit authentication over USB and NFC is pending. Vault unlocking and the NFC transport are inherited from upstream.
+
+## Android build variants
+
+`cd android && ./gradlew assembleRelease` produces the ARM64-only and Universal APKs in one build. Both use the same package, version and signing certificate; install either variant. Signed builds use the existing signing secrets in the Reader repository's [Mobile build workflow](https://github.com/ordanexa/fidoparole-android-reader/blob/build/mobile-read-only-0.1.0/.github/workflows/mobile-read-only-test.yml). No signing keys are stored in this fork.
 
 ## Android device check
 
