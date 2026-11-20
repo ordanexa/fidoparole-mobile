@@ -6,6 +6,8 @@
 - Correct version naming to show upstream FidoParole Mobile 0.3.0 and Ordanexa revision 0.1.3. Android versionCode is 9, allowing an update from the misnumbered 1.0.0 (versionCode 8).
 - Keep the feature freeze and existing signing certificate. The 1.0.0 release remains historical; new builds use the upstream-based naming scheme.
 
+Automated validation: 24 Rust tests and 12 Android tests passed in [build 44783907656](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44783907656). Both signed APKs were verified for package/version, architecture sets, signing certificate and 16 KiB ZIP alignment. Built source: `3d820749107e95e3b3408431ad3fa6feea8acd7b`. No new physical-device test was performed.
+
 ## 1.0.0 — 2026-11-20 (historical version name)
 
 First stable Ordanexa Android fork release; feature scope frozen.

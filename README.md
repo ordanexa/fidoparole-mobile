@@ -4,7 +4,7 @@
 
 Version names retain the upstream base followed by the Ordanexa revision: `0.3.0-ordanexa.0.1.3`. The previous `1.0.0` name did not show that base and is retained only as historical release numbering. Android versionCode continues increasing, so existing installations can update normally.
 
-**Stable release: 1.0.0.** The feature scope is **frozen**. The agreed Android feature set is complete. Future maintenance is limited to bug fixes, security fixes, Android compatibility and necessary upstream updates. New features require a separate decision; document/file-vault tools are outside this project's scope.
+**Current release: 0.3.0-ordanexa.0.1.3 (upstream 0.3.0).** The feature scope is **frozen**. The agreed Android feature set is complete. Future maintenance is limited to bug fixes, security fixes, Android compatibility and necessary upstream updates. New features require a separate decision; document/file-vault tools are outside this project's scope.
 
 This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mobile) adds a read-only default to the Android app.
 
@@ -14,20 +14,20 @@ This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mob
 - A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.
 - Opening another vault, locking, backgrounding the app or detaching a USB key resets the Edit permission. NFC is connected only during individual operations: removing an NFC key between operations does not revoke Edit. Hold it to the phone again to save; Save, Done (when clean), Lock and backgrounding end Edit. Pending authentication cannot restore an expired session. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
 
-Android stable release **1.0.0** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
+Android release **0.3.0-ordanexa.0.1.3** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
 
 | Variant | Download | Size | Architectures |
 | --- | --- | --- | --- |
-| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-ordanexa-1.0.0-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
-| Universal | [Universal APK](apks/fidoparole-mobile-ordanexa-1.0.0-universal.apk?raw=true) | 5.71 MiB | arm64-v8a, armeabi-v7a, x86_64 |
+| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-0.3.0-ordanexa.0.1.3-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
+| Universal | [Universal APK](apks/fidoparole-mobile-0.3.0-ordanexa.0.1.3-universal.apk?raw=true) | 5.71 MiB | arm64-v8a, armeabi-v7a, x86_64 |
 
-[Stable releases](https://github.com/ordanexa/fidoparole-mobile/releases) · [Changelog](CHANGELOG.md) · [SHA-256 checksums](apks/SHA256SUMS) · [Previous test APKs](apks/)
+[Releases](https://github.com/ordanexa/fidoparole-mobile/releases) · [Changelog](CHANGELOG.md) · [SHA-256 checksums](apks/SHA256SUMS) · [Previous test APKs](apks/)
 
-Validation passed in [build run 44776876199](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44776876199): **24 Rust tests and all 11 Android tests**, including fresh Edit authentication, token fallback with wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks for About / Info on the start, vault and entry screens. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `1accf2ec3583698f443e976b14edcbe2dfdde18a`.
+Validation passed in [build run 44783907656](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44783907656): **24 Rust tests and all 12 Android tests**, including fresh Edit authentication, both token-PIN alternatives with phone biometrics enrolled, wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks for About / Info on the start, vault and entry screens. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `3d820749107e95e3b3408431ad3fa6feea8acd7b`.
 
 The token fallback verifies the open vault's credential and hmac-secret through a fresh authentication; it does not write to the token or replace unsaved entries. Phone-fingerprint Edit needs no token connection. Saving still requires the vault's token.
 
-Physical-device testing of the Edit authentication over USB and NFC remains unverified in this release record. This version-only promotion adds no new physical-device test. Vault unlocking and the NFC transport are inherited from upstream.
+Physical-device testing of the Edit authentication over USB and NFC remains unverified in this release record. No new physical-device test was performed for this bug-fix release. Vault unlocking and the NFC transport are inherited from upstream.
 
 ## Android build variants
 
@@ -37,7 +37,7 @@ Physical-device testing of the Edit authentication over USB and NFC remains unve
 
 1. Open a vault by USB, then NFC. Confirm Read-only is shown and no add, generate, save, import or delete action is offered.
 2. Open an entry. Show/hide and copy its password. Confirm touching the displayed fields cannot edit them.
-3. Choose Edit, authenticate again using phone fingerprint (without needing the token), or with the token when phone biometrics are unavailable, modify a dummy entry and save. Confirm the vault returns to Read-only and can be reopened with the change.
+3. Choose Edit, authenticate again using phone fingerprint (without needing the token), or choose Use token PIN in that prompt. Also test More → Edit with token PIN with phone biometrics enrolled: cancel or use a wrong PIN to confirm Read-only remains active, then authenticate with the correct PIN, modify a dummy entry and save. Confirm the vault returns to Read-only and can be reopened with the change.
 4. Choose Edit without changing anything, then Done. Confirm Read-only resumes.
 5. Make an unsaved edit, then Done. Confirm the app asks you to save or lock instead of losing the edit.
 6. Cancel the Edit prompt; confirm edits remain blocked. Enable Edit, background/return to the app, then repeat with USB removal; confirm a new authentication is required each time.
