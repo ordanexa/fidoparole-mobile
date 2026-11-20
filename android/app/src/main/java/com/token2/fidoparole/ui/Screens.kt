@@ -63,7 +63,7 @@ fun App(vm: VaultViewModel, files: FilePickers) {
     }
 }
 
-/** Shown only when strong phone biometrics are unavailable. PIN stays in this dialog. */
+/** Fresh token authentication, available with or without phone biometrics. PIN stays here. */
 @Composable
 fun EditTokenDialog(s: UiState, vm: VaultViewModel) {
     var pin by remember { mutableStateOf("") }
