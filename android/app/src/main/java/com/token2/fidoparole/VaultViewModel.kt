@@ -45,6 +45,7 @@ data class UiState(
     /** Explicit write permission for this UI session; every opened vault starts read-only. */
     val editing: Boolean = false,
     val editAuthenticating: Boolean = false,
+    val editTokenRequired: Boolean = false,
     val usbKeys: List<com.token2.fidoparole.keys.UsbKey> = emptyList(),
     /** null = NFC, otherwise the chosen USB key's id. */
     val usbChoice: String? = null,
@@ -82,6 +83,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     var gate: BiometricGate? = null
     /** A fresh system authentication, independent of whether a token PIN was saved. */
     var editGate: (suspend () -> Boolean)? = null
+    var editBiometricsAvailable: (() -> Boolean)? = null
     private var editEpoch = 0L
     private var editJob: Job? = null
     private val _ui = MutableStateFlow(UiState())
@@ -124,6 +126,10 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     fun enableEditing() {
         if (_ui.value.editing || _ui.value.editAuthenticating || _ui.value.busy != null || job?.isActive == true) return
+        if (editBiometricsAvailable?.invoke() != true) {
+            _ui.update { it.copy(editTokenRequired = true, error = null) }
+            return
+        }
         val authenticate = editGate ?: run {
             _ui.update { it.copy(error = "Device authentication is unavailable. Editing remains locked.") }
             return
@@ -153,7 +159,45 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         editEpoch++
         editJob?.cancel()
         editJob = null
-        _ui.update { it.copy(editing = false, editAuthenticating = false) }
+        _ui.update { it.copy(editing = false, editAuthenticating = false, editTokenRequired = false) }
+    }
+
+    fun cancelEditAuthentication() { revokeEditing() }
+
+    /** Fresh PIN/UV verification on the actual vault's key, without modifying the vault. */
+    fun authenticateEditWithToken(pin: String, fingerprint: Boolean = false) {
+        if (!_ui.value.editTokenRequired || _ui.value.busy != null || job?.isActive == true) return
+        val choice = if (sessionKey == KeyChoice.Demo && session != null) KeyChoice.Demo else currentChoice()
+        if (fingerprint && choice is KeyChoice.Nfc) {
+            _ui.update { it.copy(error = "Use the token PIN over NFC.") }; return
+        }
+        val credential = if (fingerprint) null else pin.ifEmpty {
+            _ui.update { it.copy(error = "Enter the token PIN") }; return
+        }
+        val vault = session
+        val epoch = editEpoch
+        _ui.update { it.copy(editTokenRequired = false, editAuthenticating = true) }
+        op("Authenticate on your security key — touch it when it blinks.", choice,
+            nfcText = "Verifying your token — keep holding it against the phone…",
+            after = {
+                if (epoch == editEpoch && session === vault) _ui.update { it.copy(editing = true) }
+            }) { link ->
+            try {
+                if (epoch != editEpoch || session !== vault) throw PromptCancelled()
+                if (credential != null) {
+                    val left = link!!.info().pinRetries
+                    if (left in 1..2 && !lowRetriesConfirmed) {
+                        lowRetriesConfirmed = true
+                        throw FpException.Other("Only $left token PIN attempts left. Check the PIN and choose Edit again to retry.")
+                    }
+                }
+                lowRetriesConfirmed = false
+                if (vault != null) vault.authenticateEdit(link!!, credential)
+                else link!!.verifyUser(credential)
+            } finally {
+                if (epoch == editEpoch) _ui.update { it.copy(editAuthenticating = false) }
+            }
+        }
     }
 
     fun finishEditing() {
@@ -507,13 +551,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(editing = false, status = null, entries = emptyList(), entry = null, revealed = null, choices = null, query = "") }
     }
 
-    fun onBackground(preserveEditPrompt: Boolean = false) {
-        // The system credential activity is part of our fresh authentication.
-        // Existing Edit permission is always revoked; screen-off cancels pending prompts.
-        if (preserveEditPrompt && _ui.value.editAuthenticating) _ui.update { it.copy(editing = false) }
-        else revokeEditing()
-        backgroundSince = SystemClock.elapsedRealtime()
-    }
+    fun onBackground() { revokeEditing(); backgroundSince = SystemClock.elapsedRealtime() }
 
     /** Auto-lock: 2 minutes in the background, 8 with unsaved changes. */
     fun onForeground() {

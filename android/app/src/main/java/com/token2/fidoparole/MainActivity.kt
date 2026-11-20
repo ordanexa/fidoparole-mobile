@@ -24,7 +24,6 @@ import com.token2.fidoparole.ui.App
 import com.token2.fidoparole.ui.FidoParoleTheme
 import com.token2.fidoparole.ui.FilePickers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import uniffi.fidoparole_ffi.FpException
 import javax.crypto.Cipher
@@ -36,7 +35,6 @@ class MainActivity : FragmentActivity() {
     private val vm: VaultViewModel by viewModels()
     private var nfc: NfcAdapter? = null
     private var readerOn = false
-    private var editPromptActive = false
     private var pendingExport: ((android.net.Uri) -> Unit)? = null
     private var pendingImport: ((android.net.Uri) -> Unit)? = null
 
@@ -68,6 +66,11 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         vm.gate = ::biometric
         vm.editGate = ::authenticateEdit
+        vm.editBiometricsAvailable = {
+            androidx.biometric.BiometricManager.from(this).canAuthenticate(
+                androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+            ) == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
+        }
         nfc = NfcAdapter.getDefaultAdapter(this)
         vm.setNfcAvailable(nfc?.isEnabled == true)
         ContextCompat.registerReceiver(this, usbEvents, IntentFilter().apply {
@@ -111,29 +114,9 @@ class MainActivity : FragmentActivity() {
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
     }
 
-    /** Every Edit request opens a new system prompt; never reuse the unlock result. */
-    private suspend fun authenticateEdit(): Boolean {
-        editPromptActive = true
-        try {
-            val approved = awaitEditAuthentication()
-            // Device-credential confirmation can stop this activity. Wait for its return.
-            lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
-            return approved
-        } finally {
-            editPromptActive = false
-        }
-    }
-
-    private suspend fun awaitEditAuthentication(): Boolean = suspendCancellableCoroutine { cont ->
-        val authenticators = if (Build.VERSION.SDK_INT >= 30)
-            androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        else androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
-        if (androidx.biometric.BiometricManager.from(this).canAuthenticate(authenticators) !=
-            androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
-            cont.resumeWithException(FpException.Other("Set up a fingerprint or supported screen lock to enable editing."))
-            return@suspendCancellableCoroutine
-        }
+    /** Edit uses phone biometrics only. Without them the ViewModel requests the token. */
+    private suspend fun authenticateEdit(): Boolean = suspendCancellableCoroutine { cont ->
+        val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 if (cont.isActive) cont.resume(true)
@@ -145,10 +128,10 @@ class MainActivity : FragmentActivity() {
             }
         })
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Authenticate to edit")
-            .setSubtitle("Confirm your identity to allow changes to the vault")
+            .setTitle("Scan your fingerprint")
+            .setSubtitle("Allow editing this vault")
             .setAllowedAuthenticators(authenticators)
-            .apply { if (Build.VERSION.SDK_INT < 30) setNegativeButtonText("Cancel") }
+            .setNegativeButtonText("Cancel")
             .build()
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
         prompt.authenticate(info)
@@ -174,13 +157,14 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onStart() { super.onStart(); vm.setNfcAvailable(nfc?.isEnabled == true); vm.onForeground(); vm.refreshUsb(); vm.refreshPinState() }
-    override fun onStop() { super.onStop(); vm.onBackground(preserveEditPrompt = editPromptActive && !isFinishing) }
+    override fun onStop() { super.onStop(); vm.onBackground() }
     override fun onPause() { super.onPause(); readerOn = false; nfc?.disableReaderMode(this) }
 
     override fun onDestroy() {
         unregisterReceiver(usbEvents)
         vm.gate = null
         vm.editGate = null
+        vm.editBiometricsAvailable = null
         super.onDestroy()
     }
 }

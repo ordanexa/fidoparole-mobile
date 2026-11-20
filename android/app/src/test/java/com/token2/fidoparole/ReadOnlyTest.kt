@@ -22,6 +22,7 @@ class ReadOnlyTest {
 
     @Before fun openDemo() {
         vm = VaultViewModel(ApplicationProvider.getApplicationContext<Application>())
+        vm.editBiometricsAvailable = { true }
         vm.editGate = { true }
         vm.startDemo()
         await { vm.ui.value.status != null || vm.ui.value.error != null }
@@ -115,19 +116,39 @@ class ReadOnlyTest {
         assertFalse(vm.ui.value.editAuthenticating)
     }
 
-    @Test fun systemCredentialRoundTripCanFinishButAnExpiredSessionCannot() {
-        val pending = kotlinx.coroutines.CompletableDeferred<Boolean>()
-        vm.editGate = { pending.await() }
+    @Test fun unavailableFingerprintRequiresTokenAndWrongPinCannotEnableEditing() {
+        vm.editBiometricsAvailable = { false }
+        var biometricPrompts = 0
+        vm.editGate = { biometricPrompts++; true }
         vm.enableEditing()
-        ShadowLooper.idleMainLooper()
-        vm.onBackground(preserveEditPrompt = true)
+        assertTrue(vm.ui.value.editTokenRequired)
         assertFalse(vm.ui.value.editing)
-        vm.onForeground()
-        pending.complete(true)
+        assertEquals(0, biometricPrompts)
+        vm.authenticateEditWithToken("0000")
         await { !vm.ui.value.editAuthenticating }
+        assertFalse(vm.ui.value.editing)
+        assertNotNull(vm.ui.value.error)
+        vm.clearError()
+        vm.enableEditing()
+        vm.authenticateEditWithToken("1234")
+        await { vm.ui.value.editing || vm.ui.value.error != null }
+        assertNull(vm.ui.value.error)
         assertTrue(vm.ui.value.editing)
-        vm.finishEditing()
+        vm.onBackground()
+        assertFalse(vm.ui.value.editing)
+        // A stale button callback cannot grant access without a new Edit request.
+        vm.authenticateEditWithToken("1234")
+        assertFalse(vm.ui.value.editing)
+    }
+
+    @Test fun cancelledTokenPromptAndLateFingerprintResultRemainReadOnly() {
+        vm.editBiometricsAvailable = { false }
+        vm.enableEditing()
+        vm.cancelEditAuthentication()
+        assertFalse(vm.ui.value.editTokenRequired)
+        assertFalse(vm.ui.value.editing)
         val stale = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        vm.editBiometricsAvailable = { true }
         vm.editGate = { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stale.await() } }
         vm.enableEditing()
         ShadowLooper.idleMainLooper()

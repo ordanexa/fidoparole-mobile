@@ -51,12 +51,42 @@ fun App(vm: VaultViewModel, files: FilePickers) {
             s.choices != null -> ChooseScreen(s, vm)
             else -> StartScreen(s, vm, snack)
         }
+        if (s.editTokenRequired) EditTokenDialog(s, vm)
         s.busy?.let { BusyOverlay(it, onCancel = vm::cancelBusy) }
         s.error?.let { err ->
             AlertDialog(onDismissRequest = vm::clearError, confirmButton = { TextButton(onClick = vm::clearError) { Text("OK") } },
                 title = { Text("Couldn't complete that") }, text = { Text(err) })
         }
     }
+}
+
+/** Shown only when strong phone biometrics are unavailable. PIN stays in this dialog. */
+@Composable
+fun EditTokenDialog(s: UiState, vm: VaultViewModel) {
+    var pin by remember { mutableStateOf("") }
+    var tokenFingerprint by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = vm::cancelEditAuthentication,
+        title = { Text("Authenticate with your token") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Phone fingerprint is unavailable. Connect your vault's security key by USB or hold it to the phone using NFC.")
+                KeyPicker(s.usbKeys, s.usbChoice, s.nfcAvailable, vm::chooseUsb, vm::refreshUsb)
+                PinField(pin, { pin = it }, "Token PIN", s.pinAlpha, vm::setPinAlpha, enabled = !tokenFingerprint)
+                if (s.usbChoice != null && s.keyInfo?.hasFingerprint != false) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(tokenFingerprint, { tokenFingerprint = it })
+                        Text("Use fingerprint on the security key")
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = {
+            vm.authenticateEditWithToken(pin, tokenFingerprint && s.usbChoice != null)
+            pin = ""
+        }) { Text("Authenticate") } },
+        dismissButton = { TextButton(onClick = vm::cancelEditAuthentication) { Text("Cancel") } },
+    )
 }
 
 // ------------------------------------------------------------- start ----

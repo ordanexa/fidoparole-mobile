@@ -185,6 +185,12 @@ impl KeyLink {
         Ok(Arc::new(KeyLink { dev: Mutex::new(Device::open(t, events(listener))?), nfc: false }))
     }
 
+    /// Fresh verification for Edit before a vault exists; never writes to the key.
+    pub fn verify_user(&self, pin: Option<String>) -> Res<()> {
+        let auth = auth_from(pin);
+        self.with(|d| d.token(&auth, ctap::perm::GET_ASSERTION, Some(keyops::RP_ID)).map(|_| ()))
+    }
+
     pub fn is_nfc(&self) -> bool { self.nfc }
 
     pub fn info(&self) -> KeyInfo {
@@ -502,6 +508,18 @@ impl VaultSession {
         })
     }
 
+    /// Fresh Edit authentication on the same credential and hmac-secret.
+    /// Leaves entries, unsaved edits, cached PIN and on-key data untouched.
+    pub fn authenticate_edit(&self, link: Arc<KeyLink>, pin: Option<String>) -> Res<()> {
+        let (id, secret) = self.with(|s| Ok((s.cred.cred_id.clone(), s.cred.hmac_secret.clone())))?;
+        let auth = auth_from(pin);
+        link.with(|d| keyops::reconnect(d, &auth, &id, &secret))?;
+        self.with(|s| {
+            if s.cred.cred_id != id { return Err(FpError::Other { detail: "the vault changed during authentication".into() }); }
+            Ok(())
+        })
+    }
+
     /// Re-attach to the key after the link was lost. Returns true when the
     /// data on the key changed meanwhile (the open vault is then unsaved).
     pub fn reconnect(&self, link: Arc<KeyLink>) -> Res<bool> {
@@ -610,6 +628,26 @@ mod tests {
         v[0].save(link.clone()).unwrap();
         let again = unlock(KeyLink::demo(None).unwrap(), Some(demo_pin())).unwrap();
         assert!(again[0].entry(id).is_ok());
+    }
+
+    #[test]
+    fn edit_authentication_checks_pin_and_same_key_without_mutating_entries() {
+        let usb = KeyLink::usb(Arc::new(UsbMock(Mutex::new(HidLoop::new(MockAuthenticator::new(Some("1234")))))), None).unwrap();
+        usb.verify_user(Some("1234".into())).unwrap();
+        let v = create_vault(usb.clone(), Some("1234".into()), "Edit guard".into()).unwrap();
+        let id = v.add_entry("Unsaved fixture".into()).unwrap();
+        v.authenticate_edit(usb.clone(), Some("1234".into())).unwrap();
+        assert!(v.status().unwrap().dirty);
+        assert_eq!(v.entry(id).unwrap().title, "Unsaved fixture");
+        assert!(v.authenticate_edit(usb.clone(), Some("0000".into())).is_err());
+        let other = KeyLink::nfc(Arc::new(NfcMock(Mutex::new(NfcLoop::new(MockAuthenticator::new(Some("1234")))))), None).unwrap();
+        assert!(v.authenticate_edit(other, Some("1234".into())).is_err());
+        v.lock();
+        assert!(v.authenticate_edit(usb, Some("1234".into())).is_err());
+        let nfc = KeyLink::nfc(Arc::new(NfcMock(Mutex::new(NfcLoop::new(MockAuthenticator::new(Some("5678")))))), None).unwrap();
+        let n = create_vault(nfc.clone(), Some("5678".into()), "NFC Edit".into()).unwrap();
+        n.authenticate_edit(nfc, Some("5678".into())).unwrap();
+        assert!(!n.status().unwrap().dirty);
     }
 
     #[test]

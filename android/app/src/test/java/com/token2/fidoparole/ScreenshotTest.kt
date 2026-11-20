@@ -33,6 +33,7 @@ class ScreenshotTest {
         compose.setContent { FidoParoleTheme { App(vm, FilePickers({ _, _ -> }, {})) } }
         compose.onRoot().captureRoboImage("build/screens/1-start.png")
 
+        vm.editBiometricsAvailable = { true }
         vm.editGate = { true }
         vm.startDemo()
         try {

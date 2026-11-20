@@ -3,9 +3,9 @@
 This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mobile) adds a read-only default to the Android app.
 
 - Opened vaults start in **Read-only** mode. Browse, search, show/hide and copy work immediately. Encrypted backup export is also available.
-- Choose **Edit** and complete a fresh Android system authentication to enable changes. Fingerprint or the device screen lock is supported on Android 11+; Android 8–10 requires strong biometrics. A saved token PIN is not required. Cancelling or failing authentication keeps Read-only active. Entry fields, password generation, add/delete, save, import, copy-to-another-key, vault creation and deletion are guarded in the Android ViewModel as well as the UI.
+- Choose **Edit** and complete a fresh phone fingerprint authentication to enable changes. Phone fingerprint works without the token present. When strong phone biometrics are unavailable, connect the vault's token over USB/NFC and authenticate with its PIN (or the token's fingerprint over USB). The device screen-lock PIN is not an Edit fallback. A saved token PIN is not required. Cancelling or failing authentication keeps Read-only active. Entry fields, password generation, add/delete, save, import, copy-to-another-key, vault creation and deletion are guarded in the Android ViewModel as well as the UI.
 - A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.
-- Opening another vault, locking, backgrounding the app or detaching a USB key resets the Edit permission. Pending authentication cannot restore an expired session. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
+- Opening another vault, locking, backgrounding the app or detaching a USB key resets the Edit permission. NFC is connected only during individual operations: removing an NFC key between operations does not revoke Edit. Hold it to the phone again to save; Save, Done (when clean), Lock and backgrounding end Edit. Pending authentication cannot restore an expired session. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
 
 Android test build **0.3.0-ordanexa.0.1.0-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
 
@@ -17,13 +17,13 @@ Device testing of the read-only/edit transition over USB and NFC is pending. Exi
 
 ## Next build: 0.1.1-test
 
-Adds fresh Edit authentication and produces ARM64-only and Universal release APKs in the same Gradle build (`./gradlew assembleRelease`). Both use the same package, version and signing certificate; install either variant. ARM64 is recommended for current Samsung devices. Universal includes ARM64, ARMv7 and x86_64. Release downloads and verified checksums will be added after CI succeeds.
+Adds fresh Edit authentication (phone fingerprint, otherwise the token) and produces ARM64-only and Universal release APKs in the same Gradle build (`./gradlew assembleRelease`). Both use the same package, version and signing certificate; install either variant. ARM64 is recommended for current Samsung devices. Universal includes ARM64, ARMv7 and x86_64. Release downloads and verified checksums will be added after CI succeeds.
 
 ## Android device check
 
 1. Open a vault by USB, then NFC. Confirm Read-only is shown and no add, generate, save, import or delete action is offered.
 2. Open an entry. Show/hide and copy its password. Confirm touching the displayed fields cannot edit them.
-3. Choose Edit, authenticate again using fingerprint or device screen lock, modify a dummy entry and save. Confirm the vault returns to Read-only and can be reopened with the change.
+3. Choose Edit, authenticate again using phone fingerprint (without needing the token), or with the token when phone biometrics are unavailable, modify a dummy entry and save. Confirm the vault returns to Read-only and can be reopened with the change.
 4. Choose Edit without changing anything, then Done. Confirm Read-only resumes.
 5. Make an unsaved edit, then Done. Confirm the app asks you to save or lock instead of losing the edit.
 6. Cancel the Edit prompt; confirm edits remain blocked. Enable Edit, background/return to the app, then repeat with USB removal; confirm a new authentication is required each time.
