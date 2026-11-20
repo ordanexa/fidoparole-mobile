@@ -8,16 +8,16 @@ This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mob
 - A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.
 - Opening another vault, locking, backgrounding the app or detaching a USB key resets the Edit permission. NFC is connected only during individual operations: removing an NFC key between operations does not revoke Edit. Hold it to the phone again to save; Save, Done (when clean), Lock and backgrounding end Edit. Pending authentication cannot restore an expired session. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
 
-Android test build **0.3.0-ordanexa.0.1.1-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
+Android test build **0.3.0-ordanexa.0.1.2-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
 
 | Variant | Download | Size | Architectures |
 | --- | --- | --- | --- |
-| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-ordanexa-0.1.1-test-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
-| Universal | [Universal APK](apks/fidoparole-mobile-ordanexa-0.1.1-test-universal.apk?raw=true) | 5.73 MiB | arm64-v8a, armeabi-v7a, x86_64 |
+| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-ordanexa-0.1.2-test-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
+| Universal | [Universal APK](apks/fidoparole-mobile-ordanexa-0.1.2-test-universal.apk?raw=true) | 5.73 MiB | arm64-v8a, armeabi-v7a, x86_64 |
 
-[SHA-256 checksums](apks/SHA256SUMS) · [Previous 0.1.0 test APK](apks/fidoparole-mobile-ordanexa-0.1.0-test.apk?raw=true)
+[SHA-256 checksums](apks/SHA256SUMS) · [Previous test APKs](apks/)
 
-Validation passed in [build run 44671756851](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44671756851): **24 Rust tests and all 11 Android tests**, including fresh Edit authentication, token fallback with wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `cca125a8c8a5c115751e632a82064f25e24a870a`.
+Validation passed in [build run 44682930553](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44682930553): **24 Rust tests and all 11 Android tests**, including fresh Edit authentication, token fallback with wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks for About / Info on the start, vault and entry screens. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `7c977f63615e2f5f8f64b14e5bbf44f0e2b1bf82`.
 
 The token fallback verifies the open vault's credential and hmac-secret through a fresh authentication; it does not write to the token or replace unsaved entries. Phone-fingerprint Edit needs no token connection. Saving still requires the vault's token.
 
@@ -35,7 +35,8 @@ Physical-device testing of the new Edit authentication over USB and NFC is pendi
 4. Choose Edit without changing anything, then Done. Confirm Read-only resumes.
 5. Make an unsaved edit, then Done. Confirm the app asks you to save or lock instead of losing the edit.
 6. Cancel the Edit prompt; confirm edits remain blocked. Enable Edit, background/return to the app, then repeat with USB removal; confirm a new authentication is required each time.
-7. Lock and reopen. Confirm Read-only is restored. Test backup export in Read-only and import/copy-to-key only after Edit using test data and a backup key.
+7. Open More → About / Info before unlocking, in a vault and on an entry. Confirm the current version and Read-only/Edit/NFC guidance are shown. Close it and confirm the screen and Edit permission are unchanged.
+8. Lock and reopen. Confirm Read-only is restored. Test backup export in Read-only and import/copy-to-key only after Edit using test data and a backup key.
 
 ---
 
