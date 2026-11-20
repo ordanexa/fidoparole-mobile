@@ -2,7 +2,7 @@
 
 ## Project status
 
-The feature scope is **frozen**. The agreed Android feature set is complete. Future maintenance is limited to bug fixes, security fixes, Android compatibility and necessary upstream updates. New features require a separate decision; document/file-vault tools are outside this project's scope.
+**Stable release: 1.0.0.** The feature scope is **frozen**. The agreed Android feature set is complete. Future maintenance is limited to bug fixes, security fixes, Android compatibility and necessary upstream updates. New features require a separate decision; document/file-vault tools are outside this project's scope.
 
 This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mobile) adds a read-only default to the Android app.
 
@@ -12,20 +12,20 @@ This fork of [Token2 FidoParole Mobile](https://github.com/token2/fidoparole-mob
 - A successful save returns to Read-only. **Done** also returns to Read-only when there are no unsaved changes. With unsaved changes, save first or lock the vault to discard them.
 - Opening another vault, locking, backgrounding the app or detaching a USB key resets the Edit permission. NFC is connected only during individual operations: removing an NFC key between operations does not revoke Edit. Hold it to the phone again to save; Save, Done (when clean), Lock and backgrounding end Edit. Pending authentication cannot restore an expired session. This mode prevents accidental application writes. It does not change the token's firmware or enforce a protocol-level read-only mode.
 
-Android test build **0.3.0-ordanexa.0.1.2-test** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
+Android stable release **1.0.0** uses package `com.ordanexa.fidoparole.mobile` and launcher name **FidoParole Ordanexa**, so it can be installed alongside the official app. The fork has its own app data and PIN storage.
 
 | Variant | Download | Size | Architectures |
 | --- | --- | --- | --- |
-| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-ordanexa-0.1.2-test-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
-| Universal | [Universal APK](apks/fidoparole-mobile-ordanexa-0.1.2-test-universal.apk?raw=true) | 5.73 MiB | arm64-v8a, armeabi-v7a, x86_64 |
+| **ARM64 (recommended for current Samsung devices)** | [ARM64 APK](apks/fidoparole-mobile-ordanexa-1.0.0-arm64.apk?raw=true) | 3.60 MiB | arm64-v8a |
+| Universal | [Universal APK](apks/fidoparole-mobile-ordanexa-1.0.0-universal.apk?raw=true) | 5.71 MiB | arm64-v8a, armeabi-v7a, x86_64 |
 
-[SHA-256 checksums](apks/SHA256SUMS) · [Previous test APKs](apks/)
+[Stable releases](https://github.com/ordanexa/fidoparole-mobile/releases) · [Changelog](CHANGELOG.md) · [SHA-256 checksums](apks/SHA256SUMS) · [Previous test APKs](apks/)
 
-Validation passed in [build run 44682930553](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44682930553): **24 Rust tests and all 11 Android tests**, including fresh Edit authentication, token fallback with wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks for About / Info on the start, vault and entry screens. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `7c977f63615e2f5f8f64b14e5bbf44f0e2b1bf82`.
+Validation passed in [build run 44776876199](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44776876199): **24 Rust tests and all 11 Android tests**, including fresh Edit authentication, token fallback with wrong-PIN rejection, session revocation, ViewModel mutation guards and Compose UI checks for About / Info on the start, vault and entry screens. Both release APKs' package, version, architecture sets, signing certificate and 16 KiB ZIP alignment were verified. Source commit: `1accf2ec3583698f443e976b14edcbe2dfdde18a`.
 
 The token fallback verifies the open vault's credential and hmac-secret through a fresh authentication; it does not write to the token or replace unsaved entries. Phone-fingerprint Edit needs no token connection. Saving still requires the vault's token.
 
-Physical-device testing of the new Edit authentication over USB and NFC is pending. Vault unlocking and the NFC transport are inherited from upstream.
+Physical-device testing of the Edit authentication over USB and NFC remains unverified in this release record. This version-only promotion adds no new physical-device test. Vault unlocking and the NFC transport are inherited from upstream.
 
 ## Android build variants
 

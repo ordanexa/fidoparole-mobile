@@ -13,6 +13,8 @@ First stable Ordanexa Android fork release; feature scope frozen.
 
 This release promotes the 0.1.2-test feature set. Changes for 1.0.0 are version and release documentation only. Maintenance covers bug/security fixes, Android compatibility and necessary upstream updates. New features require a separate decision.
 
+Automated validation: 24 Rust tests and 11 Android tests passed in [build 44776876199](https://github.com/ordanexa/fidoparole-android-reader/actions/runs/44776876199). Both signed APKs were verified for package/version, architecture sets, signing certificate and 16 KiB ZIP alignment. Built source: `1accf2ec3583698f443e976b14edcbe2dfdde18a`. No new physical-device test was performed for this version-only promotion.
+
 ## 0.1.2-test
 
 Added About / Info, installed-version display, usage help and project/license links.
