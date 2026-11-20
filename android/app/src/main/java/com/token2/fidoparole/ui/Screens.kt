@@ -73,7 +73,7 @@ fun EditTokenDialog(s: UiState, vm: VaultViewModel) {
         title = { Text("Authenticate with your token") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Phone fingerprint is unavailable. Connect your vault's security key by USB or hold it to the phone using NFC.")
+                Text("Connect your vault's security key by USB or hold it to the phone using NFC. Enter its PIN, or use the key's own fingerprint over USB.")
                 KeyPicker(s.usbKeys, s.usbChoice, s.nfcAvailable, vm::chooseUsb, vm::refreshUsb)
                 PinField(pin, { pin = it }, "Token PIN", s.pinAlpha, vm::setPinAlpha, enabled = !tokenFingerprint || s.usbChoice == null)
                 if (s.usbChoice != null && s.keyInfo?.hasFingerprint != false) {
@@ -102,7 +102,7 @@ fun StartScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState, onAbou
     var newName by remember { mutableStateOf("Personal") }
     var showCreate by remember { mutableStateOf(false) }
     var savePin by remember { mutableStateOf(false) }
-    Scaffold(topBar = { TopAppBar(title = { Brandmark() }, actions = { EditModeAction(s, vm); AboutMenuAction(onAbout) }) }, snackbarHost = { SnackbarHost(snack) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Brandmark() }, actions = { EditModeAction(s, vm); AboutMenuAction(onAbout, if (!s.editing && s.busy == null) vm::requestTokenEditing else null) }) }, snackbarHost = { SnackbarHost(snack) }) { pad ->
         Column(Modifier.padding(pad).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Your passwords, on your key", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Text("Plug in your FIDO2 key, or hold it to the back of the phone when asked.", color = MaterialTheme.colorScheme.secondary)
@@ -228,7 +228,7 @@ fun EditModeAction(s: UiState, vm: VaultViewModel) {
 @Composable
 fun ChooseScreen(s: UiState, vm: VaultViewModel, onAbout: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Choose a vault") }, navigationIcon = {
-        IconButton(onClick = vm::cancelChoose) { Icon(Icons.Filled.Close, "Cancel") } }, actions = { AboutMenuAction(onAbout) }) }) { pad ->
+        IconButton(onClick = vm::cancelChoose) { Icon(Icons.Filled.Close, "Cancel") } }, actions = { AboutMenuAction(onAbout, if (!s.editing && s.busy == null) vm::requestTokenEditing else null) }) }) { pad ->
         LazyColumn(Modifier.padding(pad)) {
             itemsIndexed(s.choices.orEmpty()) { i, (name, _) ->
                 ListItem(headlineContent = { Text(name) }, leadingContent = { Icon(Icons.Filled.Lock, null) },
@@ -268,6 +268,7 @@ fun VaultScreen(s: UiState, vm: VaultViewModel, files: FilePickers, snack: Snack
                         if (s.editing) HorizontalDivider()
                         if (s.editing) DropdownMenuItem(text = { Text("Delete vault from key…", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "delete" })
                         HorizontalDivider()
+                        if (!s.editing) DropdownMenuItem(text = { Text("Edit with token PIN") }, onClick = { menu = false; vm.requestTokenEditing() })
                         DropdownMenuItem(text = { Text("About / Info") }, onClick = { menu = false; onAbout() })
                     }
                 })
@@ -350,7 +351,7 @@ fun EntryScreen(s: UiState, vm: VaultViewModel, snack: SnackbarHostState, onAbou
                 actions = {
                     EditModeAction(s, vm)
                     if (s.editing) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, "Delete entry") }
-                    AboutMenuAction(onAbout)
+                    AboutMenuAction(onAbout, if (!s.editing && s.busy == null) vm::requestTokenEditing else null)
                 })
         },
         snackbarHost = { SnackbarHost(snack) },

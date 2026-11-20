@@ -1,6 +1,12 @@
 # Changelog
 
-## 1.0.0 — 2026-11-20
+## 0.3.0-ordanexa.0.1.3 — 2026-11-20
+
+- Fix Edit authentication: the phone fingerprint prompt always offers **Use token PIN**, even with phone biometrics enrolled. **More → Edit with token PIN** also opens token authentication directly, without invoking the biometric prompt. The alternative still requires fresh verification on the vault's actual token; it never grants Edit by itself.
+- Correct version naming to show upstream FidoParole Mobile 0.3.0 and Ordanexa revision 0.1.3. Android versionCode is 9, allowing an update from the misnumbered 1.0.0 (versionCode 8).
+- Keep the feature freeze and existing signing certificate. The 1.0.0 release remains historical; new builds use the upstream-based naming scheme.
+
+## 1.0.0 — 2026-11-20 (historical version name)
 
 First stable Ordanexa Android fork release; feature scope frozen.
 

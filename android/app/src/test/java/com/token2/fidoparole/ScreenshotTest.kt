@@ -75,6 +75,19 @@ class ScreenshotTest {
         org.junit.Assert.assertFalse(vm.ui.value.editing)
 
         compose.onNodeWithText("Generate password").assertDoesNotExist()
+        vm.editGate = { throw TokenEditRequested() }
+        compose.onNodeWithText("Edit").performClick()
+        compose.waitUntil(5_000) { org.robolectric.shadows.ShadowLooper.idleMainLooper(); vm.ui.value.editTokenRequired }
+        compose.onNodeWithText("Authenticate with your token").assertExists()
+        compose.onNodeWithText("Token PIN").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        org.junit.Assert.assertFalse(vm.ui.value.editing)
+        compose.onNodeWithContentDescription("More").performClick()
+        compose.onNodeWithText("Edit with token PIN").performClick()
+        compose.onNodeWithText("Authenticate with your token").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        org.junit.Assert.assertFalse(vm.ui.value.editing)
+        vm.editGate = { true }
         compose.onNodeWithText("Edit").performClick()
         compose.waitUntil(5_000) { org.robolectric.shadows.ShadowLooper.idleMainLooper(); vm.ui.value.editing }
         compose.onNodeWithText("Generate password").assertExists()

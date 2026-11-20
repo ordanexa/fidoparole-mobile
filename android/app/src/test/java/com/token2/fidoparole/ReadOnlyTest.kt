@@ -116,6 +116,35 @@ class ReadOnlyTest {
         assertFalse(vm.ui.value.editAuthenticating)
     }
 
+    @Test fun tokenPinIsAvailableEvenWithPhoneFingerprintEnrolled() {
+        vm.editBiometricsAvailable = { true }
+        vm.editGate = { throw TokenEditRequested() }
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        assertTrue(vm.ui.value.editTokenRequired)
+        assertFalse(vm.ui.value.editing)
+        assertNull(vm.ui.value.error)
+        vm.authenticateEditWithToken("0000")
+        await { !vm.ui.value.editAuthenticating }
+        assertFalse(vm.ui.value.editing)
+        assertNotNull(vm.ui.value.error)
+        vm.clearError()
+        vm.enableEditing()
+        await { !vm.ui.value.editAuthenticating }
+        vm.authenticateEditWithToken("1234")
+        await { vm.ui.value.editing || vm.ui.value.error != null }
+        assertNull(vm.ui.value.error)
+        assertTrue(vm.ui.value.editing)
+        vm.finishEditing()
+        vm.editGate = { error("Direct token authentication must not invoke phone biometrics") }
+        vm.requestTokenEditing()
+        assertTrue(vm.ui.value.editTokenRequired)
+        assertFalse(vm.ui.value.editing)
+        vm.cancelEditAuthentication()
+        vm.authenticateEditWithToken("1234")
+        assertFalse(vm.ui.value.editing)
+    }
+
     @Test fun unavailableFingerprintRequiresTokenAndWrongPinCannotEnableEditing() {
         vm.editBiometricsAvailable = { false }
         var biometricPrompts = 0

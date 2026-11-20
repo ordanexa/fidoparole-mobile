@@ -143,6 +143,8 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
                 if (approved && epoch == editEpoch && session === vault && _ui.value.busy == null) {
                     _ui.update { it.copy(editing = true) }
                 }
+            } catch (_: TokenEditRequested) {
+                if (epoch == editEpoch && session === vault) _ui.update { it.copy(editTokenRequired = true) }
             } catch (_: PromptCancelled) {
                 // Cancellation leaves the vault read-only.
             } catch (e: CancellationException) {
@@ -163,6 +165,13 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cancelEditAuthentication() { revokeEditing() }
+
+    /** Direct token route, also usable if the system biometric prompt cannot open. */
+    fun requestTokenEditing() {
+        if (_ui.value.editing || _ui.value.busy != null || job?.isActive == true) return
+        revokeEditing()
+        _ui.update { it.copy(editTokenRequired = true, error = null) }
+    }
 
     /** Fresh PIN/UV verification on the actual vault's key, without modifying the vault. */
     fun authenticateEditWithToken(pin: String, fingerprint: Boolean = false) {
@@ -577,3 +586,6 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
 /** The user closed the fingerprint / screen-lock prompt. */
 class PromptCancelled : Exception("Cancelled")
+
+/** The user chose the token PIN alternative in the Edit biometric prompt. */
+class TokenEditRequested : Exception()

@@ -14,11 +14,14 @@ import com.token2.fidoparole.BuildConfig
 
 /** The same information is available before and after unlocking a vault. */
 @Composable
-fun AboutMenuAction(onAbout: () -> Unit) {
+fun AboutMenuAction(onAbout: () -> Unit, onTokenEdit: (() -> Unit)? = null) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) { Icon(Icons.Filled.MoreVert, "More") }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            onTokenEdit?.let { action ->
+                DropdownMenuItem(text = { Text("Edit with token PIN") }, onClick = { expanded = false; action() })
+            }
             DropdownMenuItem(text = { Text("About / Info") }, onClick = { expanded = false; onAbout() })
         }
     }
@@ -39,7 +42,7 @@ fun AboutDialog(onClose: () -> Unit) {
                 Text("Read-only by default", style = MaterialTheme.typography.titleSmall)
                 Text("Browse, search, reveal and copy passwords. Your vault stays on your security key.")
                 Text("Edit", style = MaterialTheme.typography.titleSmall)
-                Text("Scan your phone's fingerprint to allow changes. The token does not need to be connected. If phone biometrics are unavailable, authenticate with the vault's token using its PIN or its fingerprint over USB.")
+                Text("Scan your phone's fingerprint to allow changes without a token connection, or choose Use token PIN in the fingerprint prompt. Token authentication is always available, including when phone biometrics are set up. You can also choose More → Edit with token PIN directly. It uses the vault's token PIN or the token's own fingerprint over USB.")
                 Text("Save and lock", style = MaterialTheme.typography.titleSmall)
                 Text("Saving requires your vault's token. Save, Lock, leaving the app or unplugging a USB token ends Edit. Done returns to Read-only when there are no unsaved changes. Otherwise, save first or lock to discard them.")
                 Text("Using NFC", style = MaterialTheme.typography.titleSmall)

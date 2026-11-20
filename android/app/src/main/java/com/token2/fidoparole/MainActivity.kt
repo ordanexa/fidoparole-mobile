@@ -114,7 +114,7 @@ class MainActivity : FragmentActivity() {
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
     }
 
-    /** Edit uses phone biometrics only. Without them the ViewModel requests the token. */
+    /** Edit uses phone biometrics only. The negative button always offers token PIN authentication. */
     private suspend fun authenticateEdit(): Boolean = suspendCancellableCoroutine { cont ->
         val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
@@ -123,15 +123,18 @@ class MainActivity : FragmentActivity() {
             }
             override fun onAuthenticationError(code: Int, msg: CharSequence) {
                 if (!cont.isActive) return
-                val cancelled = code == BiometricPrompt.ERROR_USER_CANCELED || code == BiometricPrompt.ERROR_NEGATIVE_BUTTON || code == BiometricPrompt.ERROR_CANCELED
-                if (cancelled) cont.resume(false) else cont.resumeWithException(FpException.Other(msg.toString()))
+                when (code) {
+                    BiometricPrompt.ERROR_NEGATIVE_BUTTON -> cont.resumeWithException(TokenEditRequested())
+                    BiometricPrompt.ERROR_USER_CANCELED, BiometricPrompt.ERROR_CANCELED -> cont.resume(false)
+                    else -> cont.resumeWithException(FpException.Other(msg.toString()))
+                }
             }
         })
         val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Scan your fingerprint")
             .setSubtitle("Allow editing this vault")
             .setAllowedAuthenticators(authenticators)
-            .setNegativeButtonText("Cancel")
+            .setNegativeButtonText("Use token PIN")
             .build()
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
         prompt.authenticate(info)
