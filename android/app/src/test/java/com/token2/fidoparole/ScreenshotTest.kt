@@ -43,8 +43,7 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage("build/screens/1-start.png")
 
         checkAbout()
-        compose.onRoot().captureRoboImage("build/screens/0-about.png")
-        compose.onNodeWithText("Close", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Close").performClick()
         org.junit.Assert.assertFalse(vm.ui.value.editing)
 
         vm.editBiometricsAvailable = { true }
@@ -63,7 +62,7 @@ class ScreenshotTest {
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screens/2-vault.png")
         checkAbout()
-        compose.onNodeWithText("Close", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Close").performClick()
         org.junit.Assert.assertFalse(vm.ui.value.editing)
 
         vm.openEntry(vm.ui.value.entries.first { it.title == "GitHub" }.id)
@@ -71,7 +70,7 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage("build/screens/3-entry.png")
         val entryBeforeAbout = vm.ui.value.entry
         checkAbout()
-        compose.onNodeWithText("Close", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Close").performClick()
         org.junit.Assert.assertEquals(entryBeforeAbout, vm.ui.value.entry)
         org.junit.Assert.assertFalse(vm.ui.value.editing)
 
